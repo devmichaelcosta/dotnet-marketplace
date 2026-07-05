@@ -1,0 +1,122 @@
+@page "/admin/orders"
+@rendermode InteractiveServer
+@inject MarketplaceApiClient Api
+@inject ClientState State
+
+<PageTitle>Pedidos</PageTitle>
+
+<div class="toolbar">
+    <div>
+        <h1>Pedidos</h1>
+        <p>Consulta administrativa de compras realizadas.</p>
+    </div>
+    <div class="search">
+        <input class="form-control" placeholder="Cliente, login ou cidade" @bind="search" @bind:event="oninput" />
+        <button class="btn btn-primary" @onclick="LoadAsync">Buscar</button>
+    </div>
+</div>
+
+@if (!State.IsAuthenticated)
+{
+    <p>Faca login como admin para acessar esta area.</p>
+}
+else if (loading)
+{
+    <p>Carregando pedidos...</p>
+}
+else
+{
+    <section class="orders-layout">
+        <div class="table-panel compact">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Pedido</th>
+                        <th>Cliente</th>
+                        <th>Cidade</th>
+                        <th>Total</th>
+                        <th>Data</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var order in orders)
+                    {
+                        <tr class="selectable-row" @onclick="() => SelectAsync(order.Id)">
+                            <td>#@order.Id</td>
+                            <td>@order.UserName <small class="muted">(@order.Login)</small></td>
+                            <td>@order.City</td>
+                            <td>@order.Total.ToString("C")</td>
+                            <td>@order.CreatedAt.LocalDateTime.ToString("dd/MM/yyyy HH:mm")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <aside class="order-details">
+            @if (selected is null)
+            {
+                <p>Selecione um pedido.</p>
+            }
+            else
+            {
+                <h2>Pedido #@selected.Id</h2>
+                <p><strong>Cliente:</strong> @selected.Name (@selected.Login)</p>
+                <p><strong>Endereco:</strong> @selected.Address, @selected.Neighborhood - @selected.City/@selected.State</p>
+                <p><strong>CEP:</strong> @selected.Cep</p>
+                @if (!string.IsNullOrWhiteSpace(selected.Complement))
+                {
+                    <p><strong>Complemento:</strong> @selected.Complement</p>
+                }
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Produto</th>
+                            <th>Qtd</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in selected.Items)
+                        {
+                            <tr>
+                                <td>@item.Title</td>
+                                <td>@item.Quantity</td>
+                                <td>@item.SubTotal.ToString("C")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                <strong>Total: @selected.Total.ToString("C")</strong>
+            }
+        </aside>
+    </section>
+}
+
+@code {
+    private bool loading;
+    private string? search;
+    private AdminOrderSummary[] orders = [];
+    private AdminOrderDetails? selected;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (State.IsAuthenticated)
+        {
+            await LoadAsync();
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        selected = null;
+        orders = await Api.GetAdminOrdersAsync(search);
+        loading = false;
+    }
+
+    private async Task SelectAsync(int id)
+    {
+        selected = await Api.GetAdminOrderDetailsAsync(id);
+    }
+}

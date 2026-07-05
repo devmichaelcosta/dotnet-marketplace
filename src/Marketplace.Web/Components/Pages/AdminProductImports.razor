@@ -1,0 +1,360 @@
+@page "/admin/product-imports"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Components.Forms
+@inject MarketplaceApiClient Api
+@inject ClientState State
+@inject IJSRuntime Js
+
+<PageTitle>Importacoes de produtos</PageTitle>
+
+@if (!State.IsAdmin)
+{
+    <section class="admin-imports-shell">
+        <div class="admin-imports-empty">
+            <h1>Acesso restrito</h1>
+            <p>Faca login como admin para acessar esta area.</p>
+        </div>
+    </section>
+}
+else
+{
+    <section class="admin-imports-shell">
+        <div class="admin-imports-hero">
+            <div>
+                <span>Admin</span>
+                <h1>Importacoes de produtos</h1>
+                <p>Importe planilhas, acompanhe processamento em background e consulte o historico completo.</p>
+            </div>
+            <button class="btn btn-outline-secondary" type="button" @onclick="DownloadTemplateAsync">Baixar modelo</button>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <p class="notice admin-imports-notice">@message</p>
+        }
+
+        <div class="admin-imports-layout">
+            <aside class="admin-import-card admin-upload-card">
+                <div>
+                    <span class="admin-card-eyebrow">Nova importacao</span>
+                    <h2>Enviar planilha</h2>
+                    <p>A planilha original sera guardada e o processamento acontece em segundo plano.</p>
+                </div>
+                <label class="admin-file-picker" for="productImportFile">
+                    <strong>Escolher arquivo Excel</strong>
+                    <span>.xlsx ou .xls</span>
+                </label>
+                <InputFile id="productImportFile" class="admin-file-input" OnChange="UploadAsync" accept=".xlsx,.xls" />
+            </aside>
+
+            <section class="admin-import-card admin-table-card">
+                <div class="admin-table-header">
+                    <div>
+                        <span class="admin-card-eyebrow">Historico</span>
+                        <h2>Importacoes realizadas</h2>
+                    </div>
+                    <span class="admin-total-pill">@((jobs?.Total ?? 0).ToString()) registros</span>
+                </div>
+
+                <div class="admin-filter-bar">
+                    <input class="form-control" placeholder="Buscar arquivo, usuario ou resumo" @bind="search" @bind:event="oninput" />
+                    <select class="form-control" @bind="status">
+                        <option value="">Todos os status</option>
+                        <option value="Pending">Pendente</option>
+                        <option value="Processing">Processando</option>
+                        <option value="Success">Sucesso</option>
+                        <option value="Failed">Falha</option>
+                    </select>
+                    <button class="btn btn-primary" type="button" @onclick="SearchJobsAsync">Buscar</button>
+                </div>
+
+                <div class="admin-table-scroll">
+                    <table class="table admin-data-table">
+                        <thead>
+                            <tr>
+                                <th><button class="table-sort" @onclick='() => SortJobs("created")'>Data</button></th>
+                                <th>Arquivo</th>
+                                <th><button class="table-sort" @onclick='() => SortJobs("user")'>Usuario</button></th>
+                                <th><button class="table-sort" @onclick='() => SortJobs("status")'>Status</button></th>
+                                <th><button class="table-sort" @onclick='() => SortJobs("duration")'>Duracao</button></th>
+                                <th class="number-cell"><button class="table-sort" @onclick='() => SortJobs("skus")'>SKUs</button></th>
+                                <th class="number-cell">Criados</th>
+                                <th class="number-cell">Atualizados</th>
+                                <th class="number-cell"><button class="table-sort" @onclick='() => SortJobs("errors")'>Erros</button></th>
+                                <th class="action-cell"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var job in jobs?.Items ?? [])
+                            {
+                                <tr class="@(selectedJob?.Id == job.Id ? "is-selected" : null)">
+                                    <td>@job.CreatedAt.LocalDateTime.ToString("dd/MM/yyyy HH:mm")</td>
+                                    <td class="file-cell">@job.OriginalFileName</td>
+                                    <td>@job.ImportedByName</td>
+                                    <td><span class="status-pill @StatusCss(job.Status)">@TranslateStatus(job.Status)</span></td>
+                                    <td>@FormatDuration(job.DurationMs)</td>
+                                    <td class="number-cell">@job.SkuCount</td>
+                                    <td class="number-cell">@job.CreatedCount</td>
+                                    <td class="number-cell">@job.UpdatedCount</td>
+                                    <td class="number-cell error-count">@job.ErrorCount</td>
+                                    <td class="action-cell"><button class="btn btn-sm btn-outline-secondary" @onclick="() => SelectJobAsync(job.Id)">Detalhes</button></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <div class="pagination-row admin-pagination">
+                    <button class="btn btn-sm btn-outline-secondary" disabled="@(jobPage <= 1)" @onclick="PreviousJobsAsync">Anterior</button>
+                    <span>Pagina @jobPage de @TotalJobPages</span>
+                    <button class="btn btn-sm btn-outline-secondary" disabled="@(jobPage >= TotalJobPages)" @onclick="NextJobsAsync">Proxima</button>
+                </div>
+            </section>
+        </div>
+
+        @if (selectedJob is not null)
+        {
+            <section class="admin-import-card import-details">
+                <div class="admin-table-header details-header">
+                    <div>
+                        <span class="admin-card-eyebrow">Detalhes</span>
+                        <h2>Importacao #@selectedJob.Id</h2>
+                        <p>@selectedJob.SummaryMessage</p>
+                    </div>
+                    <button class="btn btn-outline-secondary" type="button" @onclick="DownloadOriginalAsync">Baixar planilha original</button>
+                </div>
+
+                <div class="summary-grid">
+                    <span>Status <strong>@TranslateStatus(selectedJob.Status)</strong></span>
+                    <span>Arquivo <strong>@selectedJob.OriginalFileName</strong></span>
+                    <span>Usuario <strong>@selectedJob.ImportedByName</strong></span>
+                    <span>Duracao <strong>@FormatDuration(selectedJob.DurationMs)</strong></span>
+                    <span>SKUs <strong>@selectedJob.SkuCount</strong></span>
+                    <span>Erros <strong>@selectedJob.ErrorCount</strong></span>
+                    <span>Tamanho <strong>@FormatFileSize(selectedJob.FileSizeBytes)</strong></span>
+                </div>
+
+                <div class="admin-filter-bar details-filter">
+                    <input class="form-control" placeholder="Buscar SKU, titulo ou erro" @bind="itemSearch" @bind:event="oninput" />
+                    <select class="form-control" @bind="itemStatus">
+                        <option value="">Todos os itens</option>
+                        <option value="Created">Criado</option>
+                        <option value="Updated">Atualizado</option>
+                        <option value="Error">Erro</option>
+                        <option value="Ignored">Ignorado</option>
+                    </select>
+                    <button class="btn btn-primary" type="button" @onclick="SearchItemsAsync">Filtrar</button>
+                </div>
+
+                <div class="admin-table-scroll">
+                    <table class="table admin-data-table admin-items-table">
+                        <thead>
+                            <tr>
+                                <th><button class="table-sort" @onclick='() => SortItems("row")'>Linha</button></th>
+                                <th><button class="table-sort" @onclick='() => SortItems("sku")'>SKU</button></th>
+                                <th>Produto</th>
+                                <th><button class="table-sort" @onclick='() => SortItems("status")'>Status</button></th>
+                                <th>Erro</th>
+                                <th>Imagens</th>
+                                <th>Atributos</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in items?.Items ?? [])
+                            {
+                                <tr>
+                                    <td>@item.RowNumber</td>
+                                    <td class="file-cell">@item.Sku</td>
+                                    <td>@item.Title</td>
+                                    <td><span class="status-pill @StatusCss(item.Status)">@TranslateItemStatus(item.Status)</span></td>
+                                    <td class="error-cell">@item.ErrorMessage</td>
+                                    <td class="json-cell">@item.DownloadedImages</td>
+                                    <td class="json-cell">@item.ImportedAttributes</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <div class="pagination-row admin-pagination">
+                    <button class="btn btn-sm btn-outline-secondary" disabled="@(itemPage <= 1)" @onclick="PreviousItemsAsync">Anterior</button>
+                    <span>Pagina @itemPage de @TotalItemPages</span>
+                    <button class="btn btn-sm btn-outline-secondary" disabled="@(itemPage >= TotalItemPages)" @onclick="NextItemsAsync">Proxima</button>
+                </div>
+            </section>
+        }
+    </section>
+}
+
+@code {
+    private PagedResult<ProductImportJob>? jobs;
+    private PagedResult<ProductImportItem>? items;
+    private ProductImportDetails? selectedJob;
+    private string? message;
+    private string? search;
+    private string? status;
+    private string jobSort = "created";
+    private string jobDirection = "desc";
+    private int jobPage = 1;
+    private string? itemSearch;
+    private string? itemStatus;
+    private string itemSort = "row";
+    private string itemDirection = "asc";
+    private int itemPage = 1;
+
+    private int TotalJobPages => Math.Max(1, (int)Math.Ceiling((jobs?.Total ?? 0) / 10m));
+    private int TotalItemPages => Math.Max(1, (int)Math.Ceiling((items?.Total ?? 0) / 10m));
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (State.IsAdmin)
+        {
+            await LoadJobsAsync();
+        }
+    }
+
+    private async Task UploadAsync(InputFileChangeEventArgs args)
+    {
+        var result = await Api.UploadProductImportAsync(args.File);
+        message = result is null
+            ? "Nao foi possivel enviar a planilha."
+            : $"Importacao #{result.JobId} criada e enviada para processamento.";
+        jobPage = 1;
+        await LoadJobsAsync();
+    }
+
+    private async Task LoadJobsAsync()
+    {
+        jobs = await Api.GetProductImportsAsync(search, status, jobSort, jobDirection, jobPage);
+    }
+
+    private async Task SearchJobsAsync()
+    {
+        jobPage = 1;
+        await LoadJobsAsync();
+    }
+
+    private async Task SelectJobAsync(int id)
+    {
+        selectedJob = await Api.GetProductImportAsync(id);
+        itemPage = 1;
+        await LoadItemsAsync();
+    }
+
+    private async Task LoadItemsAsync()
+    {
+        if (selectedJob is null)
+        {
+            return;
+        }
+
+        items = await Api.GetProductImportItemsAsync(selectedJob.Id, itemSearch, itemStatus, itemSort, itemDirection, itemPage);
+    }
+
+    private async Task SearchItemsAsync()
+    {
+        itemPage = 1;
+        await LoadItemsAsync();
+    }
+
+    private async Task DownloadTemplateAsync()
+    {
+        var file = await Api.DownloadProductImportTemplateAsync();
+        await DownloadAsync(file);
+    }
+
+    private async Task DownloadOriginalAsync()
+    {
+        if (selectedJob is null)
+        {
+            return;
+        }
+
+        var file = await Api.DownloadProductImportFileAsync(selectedJob.Id);
+        await DownloadAsync(file);
+    }
+
+    private async Task DownloadAsync(FileDownload? file)
+    {
+        if (file is null)
+        {
+            message = "Nao foi possivel baixar o arquivo.";
+            return;
+        }
+
+        await Js.InvokeVoidAsync("marketplaceUi.downloadFile", file.FileName, file.ContentType, Convert.ToBase64String(file.Bytes));
+    }
+
+    private async Task PreviousJobsAsync()
+    {
+        jobPage--;
+        await LoadJobsAsync();
+    }
+
+    private async Task NextJobsAsync()
+    {
+        jobPage++;
+        await LoadJobsAsync();
+    }
+
+    private async Task PreviousItemsAsync()
+    {
+        itemPage--;
+        await LoadItemsAsync();
+    }
+
+    private async Task NextItemsAsync()
+    {
+        itemPage++;
+        await LoadItemsAsync();
+    }
+
+    private async Task SortJobs(string sort)
+    {
+        jobDirection = jobSort == sort && jobDirection == "asc" ? "desc" : "asc";
+        jobSort = sort;
+        await LoadJobsAsync();
+    }
+
+    private async Task SortItems(string sort)
+    {
+        itemDirection = itemSort == sort && itemDirection == "asc" ? "desc" : "asc";
+        itemSort = sort;
+        await LoadItemsAsync();
+    }
+
+    private static string FormatDuration(long? ms) =>
+        ms is null ? "-" : TimeSpan.FromMilliseconds(ms.Value).ToString(@"mm\:ss");
+
+    private static string FormatFileSize(long bytes)
+    {
+        if (bytes < 1024)
+        {
+            return $"{bytes} B";
+        }
+
+        var kilobytes = bytes / 1024m;
+        return kilobytes < 1024 ? $"{kilobytes:n1} KB" : $"{kilobytes / 1024m:n1} MB";
+    }
+
+    private static string StatusCss(string status) =>
+        status.ToLowerInvariant();
+
+    private static string TranslateStatus(string status) =>
+        status switch
+        {
+            "Pending" => "Pendente",
+            "Processing" => "Processando",
+            "Success" => "Sucesso",
+            "Failed" => "Falha",
+            _ => status
+        };
+
+    private static string TranslateItemStatus(string status) =>
+        status switch
+        {
+            "Created" => "Criado",
+            "Updated" => "Atualizado",
+            "Error" => "Erro",
+            "Ignored" => "Ignorado",
+            _ => status
+        };
+}

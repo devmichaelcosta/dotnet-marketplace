@@ -1,0 +1,223 @@
+@page "/profile"
+@rendermode InteractiveServer
+@inject MarketplaceApiClient Api
+@inject ClientState State
+
+<PageTitle>Meu perfil</PageTitle>
+
+<nav class="nav-breadcrumb nav-breadcrumb-dark">
+    <a href="/">Usuario</a>
+    <span>Meu perfil</span>
+</nav>
+
+@if (!State.IsAuthenticated)
+{
+    <div class="legacy-info-card">Faca login para editar seu perfil.</div>
+}
+else if (loading)
+{
+    <div class="legacy-info-card">Carregando perfil...</div>
+}
+else
+{
+    <EditForm Model="form" OnValidSubmit="SaveAsync" FormName="profile-form" class="legacy-info-card profile-form legacy-profile-form">
+        <DataAnnotationsValidator />
+        <fieldset class="category-fieldset">
+            <legend>Dados pessoais:</legend>
+        <div class="checkout-grid">
+            <label>
+                Nome
+                <InputText class="form-control" @bind-Value="form.Name" />
+            </label>
+            <label>
+                Sobrenome
+                <InputText class="form-control" @bind-Value="form.LastName" />
+            </label>
+            <label>
+                CPF
+                <InputText class="form-control" @bind-Value="form.Cpf" />
+            </label>
+            <label>
+                Login
+                <input class="form-control" value="@form.Login" disabled />
+            </label>
+        </div>
+        </fieldset>
+
+        <div class="form-section-title">
+            <h2>Enderecos</h2>
+            <button class="btn btn-outline-secondary" type="button" @onclick="AddAddress">Adicionar endereco</button>
+        </div>
+
+        @for (var index = 0; index < form.Addresses.Count; index++)
+        {
+            var address = form.Addresses[index];
+            <fieldset class="category-fieldset">
+                <legend>Endereco @(index + 1)</legend>
+                <div class="checkout-grid">
+                    <label>
+                        Rua
+                        <InputText class="form-control" @bind-Value="address.Street" />
+                    </label>
+                    <label>
+                        Bairro
+                        <InputText class="form-control" @bind-Value="address.Neighborhood" />
+                    </label>
+                    <label>
+                        Cidade
+                        <InputText class="form-control" @bind-Value="address.City" />
+                    </label>
+                    <label>
+                        Estado
+                        <InputSelect class="form-control" @bind-Value="address.StateId">
+                            @foreach (var state in states)
+                            {
+                                <option value="@state.Id">@state.Name (@state.Abbreviation)</option>
+                            }
+                        </InputSelect>
+                    </label>
+                    <label>
+                        CEP
+                        <InputText class="form-control" @bind-Value="address.Cep" />
+                    </label>
+                    <label>
+                        Complemento
+                        <InputText class="form-control" @bind-Value="address.Complement" />
+                    </label>
+                </div>
+                <button class="btn btn-sm btn-outline-danger" type="button" @onclick="() => RemoveAddressAsync(address)">Remover</button>
+            </fieldset>
+        }
+
+        <button class="btn btn-primary" type="submit">Salvar perfil</button>
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <p class="notice">@message</p>
+        }
+    </EditForm>
+}
+
+@code {
+    private bool loading;
+    private string? message;
+    private StateOption[] states = [];
+    private ProfileForm form = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (State.IsAuthenticated)
+        {
+            await LoadAsync();
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        states = await Api.GetStatesAsync();
+        var profile = await Api.GetProfileAsync();
+        form = profile is null ? new ProfileForm() : ProfileForm.From(profile);
+        EnsureAtLeastOneAddress();
+
+        loading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(form.Name))
+        {
+            message = "Informe o nome.";
+            return;
+        }
+
+        await Api.SaveProfileAsync(form.ToRequest());
+        message = "Perfil salvo.";
+        await LoadAsync();
+    }
+
+    private void AddAddress()
+    {
+        form.Addresses.Add(new AddressForm { StateId = states.FirstOrDefault()?.Id ?? 0 });
+    }
+
+    private async Task RemoveAddressAsync(AddressForm address)
+    {
+        if (address.Id is not null)
+        {
+            await Api.DeleteAddressAsync(address.Id.Value);
+        }
+
+        form.Addresses.Remove(address);
+        EnsureAtLeastOneAddress();
+    }
+
+    private void EnsureAtLeastOneAddress()
+    {
+        if (form.Addresses.Count == 0)
+        {
+            AddAddress();
+        }
+
+        foreach (var address in form.Addresses.Where(item => item.StateId == 0))
+        {
+            address.StateId = states.FirstOrDefault()?.Id ?? 0;
+        }
+    }
+
+    private sealed class ProfileForm
+    {
+        public string Login { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string? Cpf { get; set; }
+        public List<AddressForm> Addresses { get; set; } = [];
+
+        public static ProfileForm From(UserProfile profile)
+        {
+            return new ProfileForm
+            {
+                Login = profile.Login,
+                Name = profile.Name,
+                LastName = profile.LastName,
+                Cpf = profile.Cpf,
+                Addresses = profile.Addresses.Select(AddressForm.From).ToList()
+            };
+        }
+
+        public ProfileRequest ToRequest()
+        {
+            var addresses = Addresses
+                .Where(address => !string.IsNullOrWhiteSpace(address.Street))
+                .Select(address => address.ToRequest())
+                .ToArray();
+
+            return new ProfileRequest(Name.Trim(), LastName.Trim(), Cpf, addresses);
+        }
+    }
+
+    private sealed class AddressForm
+    {
+        public Guid? Id { get; set; }
+        public int StateId { get; set; }
+        public string Street { get; set; } = string.Empty;
+        public string Cep { get; set; } = string.Empty;
+        public string Neighborhood { get; set; } = string.Empty;
+        public string City { get; set; } = string.Empty;
+        public string? Complement { get; set; }
+
+        public static AddressForm From(UserAddress address) =>
+            new()
+            {
+                StateId = address.StateId,
+                Id = address.Id,
+                Street = address.Street,
+                Cep = address.Cep,
+                Neighborhood = address.Neighborhood,
+                City = address.City,
+                Complement = address.Complement
+            };
+
+        public AddressRequest ToRequest() =>
+            new(StateId, Street.Trim(), Cep.Trim(), Neighborhood.Trim(), City.Trim(), Complement);
+    }
+}

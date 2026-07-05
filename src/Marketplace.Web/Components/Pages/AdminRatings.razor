@@ -1,0 +1,85 @@
+@page "/admin/ratings"
+@rendermode InteractiveServer
+@inject MarketplaceApiClient Api
+@inject ClientState State
+
+<PageTitle>Avaliacoes pendentes</PageTitle>
+
+<div class="toolbar">
+    <div>
+        <h1>Avaliacoes</h1>
+        <p>Aprovacao administrativa das avaliacoes enviadas por usuarios.</p>
+    </div>
+</div>
+
+@if (!State.IsAuthenticated)
+{
+    <p>Faca login como admin para acessar esta area.</p>
+}
+else if (loading)
+{
+    <p>Carregando avaliacoes...</p>
+}
+else if (ratings.Length == 0)
+{
+    <p>Nenhuma avaliacao pendente.</p>
+}
+else
+{
+    <div class="table-panel">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Produto</th>
+                    <th>Usuario</th>
+                    <th>Avaliacao</th>
+                    <th>Nota</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var rating in ratings)
+                {
+                    <tr>
+                        <td>@rating.ProductTitle</td>
+                        <td>@rating.UserName</td>
+                        <td>
+                            <strong>@rating.Title</strong>
+                            <p>@rating.Description</p>
+                        </td>
+                        <td>@rating.Rating</td>
+                        <td class="table-actions">
+                            <button class="btn btn-sm btn-primary" @onclick="() => ApproveAsync(rating.Id)">Aprovar</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private bool loading;
+    private PendingRating[] ratings = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (State.IsAuthenticated)
+        {
+            await LoadAsync();
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        ratings = await Api.GetPendingRatingsAsync();
+        loading = false;
+    }
+
+    private async Task ApproveAsync(int id)
+    {
+        await Api.ApproveRatingAsync(id);
+        await LoadAsync();
+    }
+}

@@ -1,0 +1,79 @@
+﻿@inherits LayoutComponentBase
+@inject NavigationManager Navigation
+@inject IJSRuntime Js
+@inject ClientState State
+
+<div class="legacy-shell">
+    <LegacyNavigation />
+
+    <main>
+        <article class="container content @(IsHome ? "home-content" : "inner-content")">
+            @Body
+        </article>
+    </main>
+
+    <footer class="market-footer">
+        <div class="container market-footer-grid">
+            <div>
+                <strong class="footer-brand"><span>L</span>oja<span>W</span>hatever</strong>
+                <p>Marketplace moderno para descobrir ofertas, comparar produtos e comprar com poucos cliques.</p>
+            </div>
+            <div>
+                <h5>Atendimento</h5>
+                <address>Rua whatever, 376, Bairro Cruzeiro, Caxias do Sul, RS</address>
+                <a href="mailto:contato@lojawhatever.com.br">contato@lojawhatever.com.br</a>
+            </div>
+            <div>
+                <h5>Compra segura</h5>
+                <p>Checkout simplificado, carrinho persistente e vendedores selecionados.</p>
+            </div>
+            <div>
+                <h5>Social</h5>
+                <ul class="list-unstyled social-media-footer">
+                    <li class="face"><a aria-label="Facebook" href=""><span class="social-icon facebook"></span></a></li>
+                    <li class="youtube"><a aria-label="Youtube" href=""><span class="social-icon youtube-icon"></span></a></li>
+                    <li class="insta"><a aria-label="Instagram" href=""><span class="social-icon instagram"></span></a></li>
+                    <li class="twitter"><a aria-label="Twitter" href=""><span class="social-icon twitter-icon"></span></a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="container market-footer-bottom">
+            <small>Copyright (c) LojaWhatever LTDA.</small>
+        </div>
+    </footer>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">x</span>
+</div>
+
+@code {
+    private bool authRestored;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || authRestored)
+        {
+            return;
+        }
+
+        authRestored = true;
+        var snapshot = await Js.InvokeAsync<AuthSnapshot?>("marketplaceAuth.read");
+        if (snapshot is not null && !State.IsAuthenticated)
+        {
+            State.Restore(snapshot);
+            StateHasChanged();
+        }
+    }
+
+    private bool IsHome
+    {
+        get
+        {
+            var relative = Navigation.ToBaseRelativePath(Navigation.Uri);
+            return string.IsNullOrWhiteSpace(relative) || relative.StartsWith("?", StringComparison.Ordinal);
+        }
+    }
+}

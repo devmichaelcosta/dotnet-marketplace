@@ -1,0 +1,260 @@
+@page "/cart"
+@rendermode InteractiveServer
+@inject MarketplaceApiClient Api
+@inject ClientState State
+
+<PageTitle>Carrinho</PageTitle>
+
+<nav class="nav-breadcrumb nav-breadcrumb-dark">
+    <span>Carrinho</span>
+</nav>
+
+@if (cart is null)
+{
+    <div class="legacy-info-card">Carregando carrinho...</div>
+}
+else if (cart.Items.Length == 0)
+{
+    <section class="legacy-info-card">
+        <h4>Meu Carrinho</h4>
+        <div class="alert alert-info mb-0" role="alert">Nao ha produtos no carrinho.</div>
+    </section>
+}
+else
+{
+    <section id="meu-carrinho" class="cart-page-shell">
+        <div class="modern-cart-layout">
+            <div class="cart-items-panel">
+                <div class="cart-heading">
+                    <span class="market-eyebrow">Carrinho</span>
+                    <h1>Revise seus produtos</h1>
+                    <p>@cart.Items.Sum(item => item.Quantity) itens prontos para checkout.</p>
+                </div>
+                <div class="modern-cart-list">
+                    @foreach (var item in cart.Items)
+                    {
+                        <article class="modern-cart-item">
+                            <a class="modern-cart-image" href="products/@item.ProductId">
+                                @if (!string.IsNullOrWhiteSpace(item.Image))
+                                {
+                                    <img src="@Api.AssetUrl(item.Image)" alt="@item.Title" loading="lazy" />
+                                }
+                                else
+                                {
+                                    <span>produto</span>
+                                }
+                            </a>
+                            <div class="modern-cart-info">
+                                <a href="products/@item.ProductId">@item.Title</a>
+                                <span>@item.UnitPrice.ToString("C") cada</span>
+                                <button class="btn btn-link cart-remove-link" title="Remover item do carrinho" @onclick="() => RemoveAsync(item.ProductId)">Remover</button>
+                            </div>
+                            <label class="modern-quantity">
+                                <span>Qtd.</span>
+                                <input class="form-control" type="number" min="1" value="@item.Quantity" @onchange="args => UpdateQuantityAsync(item.ProductId, args.Value?.ToString())" />
+                            </label>
+                            <strong class="modern-cart-price">@item.SubTotal.ToString("C")</strong>
+                        </article>
+                    }
+                </div>
+            </div>
+
+            <aside class="resumo-carrinho modern-cart-summary">
+                <h4>Resumo do pedido</h4>
+                <div class="cart-summary-row">
+                    <span>Subtotal (@cart.Items.Sum(item => item.Quantity) produtos)</span>
+                    <strong>@cart.SubTotal.ToString("C")</strong>
+                </div>
+                <div class="cart-summary-row">
+                    <span>Frete</span>
+                    <strong>@cart.Shipping.ToString("C")</strong>
+                </div>
+                <hr />
+                <div class="cart-summary-row">
+                    <span>Total</span>
+                    <strong>@cart.Total.ToString("C")</strong>
+                </div>
+                <div>Em ate 1x s/ juros</div>
+                @if (!State.IsAuthenticated)
+                {
+                    <a class="btn btn-success btn-block w-100 mt-2" href="login">Finalizar pedido</a>
+                }
+                else
+                {
+                    <a class="btn btn-success btn-block w-100 mt-2" href="#checkout">Finalizar pedido</a>
+                }
+            </aside>
+        </div>
+    </section>
+
+    @if (!State.IsAuthenticated)
+    {
+        <p class="notice">Faca login para finalizar o pedido.</p>
+    }
+    else
+    {
+        <nav class="nav-breadcrumb nav-breadcrumb-dark mt-3">
+            <span>Meu carrinho</span>
+            <span>Identificacao</span>
+            <span>Pagamento</span>
+        </nav>
+
+        <section id="checkout" class="checkout-panel modern-checkout-panel">
+            <div class="cart-heading">
+                <span class="market-eyebrow">Checkout</span>
+                <h2>Finalize sua compra</h2>
+                <p>Dados de identificacao, pagamento e entrega em um fluxo simples.</p>
+            </div>
+            <div class="legacy-checkout-layout">
+                <div>
+                    <fieldset class="category-fieldset">
+                        <legend>Dados pessoais:</legend>
+                        <div class="checkout-grid">
+                            <label>
+                                Nome:
+                                <input class="form-control" @bind="checkout.Name" />
+                                <small class="form-text text-muted">Seu nome.</small>
+                            </label>
+                            <label>
+                                CPF:
+                                <input class="form-control" @bind="checkout.Cpf" />
+                                <small class="form-text text-muted">Seu cpf.</small>
+                            </label>
+                        </div>
+                    </fieldset>
+
+                    <fieldset class="category-fieldset">
+                        <legend>Dados de pagamento:</legend>
+                        <div class="checkout-grid">
+                            <label>
+                                Nome impresso
+                                <input class="form-control" @bind="checkout.CardOwnerName" />
+                            </label>
+                            <label>
+                                Data de expiracao
+                                <input class="form-control" placeholder="MM/AA" @bind="checkout.ExpirationDate" />
+                            </label>
+                        </div>
+                    </fieldset>
+
+                    <fieldset class="category-fieldset">
+                        <legend>Dados de entrega:</legend>
+                        <div class="checkout-grid">
+                            <label class="span-2">
+                                Endereco:
+                                <input class="form-control" @bind="checkout.Address" />
+                                <small class="form-text text-muted">Sua rua, seu numero de apto.</small>
+                            </label>
+                            <label>
+                                CEP:
+                                <input class="form-control" @bind="checkout.Cep" />
+                            </label>
+                            <label>
+                                Bairro:
+                                <input class="form-control" @bind="checkout.Neighborhood" />
+                            </label>
+                            <label>
+                                Estado:
+                                <select class="form-control" @bind="checkout.StateId">
+                                    @foreach (var state in states)
+                                    {
+                                        <option value="@state.Id">@state.Name (@state.Abbreviation)</option>
+                                    }
+                                </select>
+                            </label>
+                            <label>
+                                Cidade:
+                                <input class="form-control" @bind="checkout.City" />
+                            </label>
+                            <label class="span-2">
+                                Complemento:
+                                <textarea class="form-control" @bind="checkout.Complement"></textarea>
+                            </label>
+                        </div>
+                    </fieldset>
+                </div>
+
+                <aside class="list-group list-itens-cart-checkout checkout-sticky-summary">
+                    @foreach (var item in cart.Items)
+                    {
+                        <a href="products/@item.ProductId" class="list-group-item list-group-item-action bg-default">@item.Title</a>
+                    }
+                    <span class="list-group-item total list-group-item-action bg-success text-white">Total: @cart.Total.ToString("C")</span>
+                </aside>
+            </div>
+
+            <button class="btn btn-success btn-block w-100" disabled="@submitting" @onclick="SubmitCheckoutAsync">Finalizar compra</button>
+            @if (!string.IsNullOrWhiteSpace(message))
+            {
+                <p class="notice">@message</p>
+            }
+        </section>
+    }
+}
+
+@code {
+    private CartResponse? cart;
+    private StateOption[] states = [];
+    private CheckoutForm checkout = new();
+    private bool submitting;
+    private string? message;
+
+    protected override async Task OnInitializedAsync()
+    {
+        states = await Api.GetStatesAsync();
+        checkout.StateId = states.FirstOrDefault()?.Id ?? 0;
+        cart = await Api.GetCartAsync();
+    }
+
+    private async Task UpdateQuantityAsync(int productId, string? value)
+    {
+        if (!int.TryParse(value, out var quantity) || quantity <= 0)
+        {
+            return;
+        }
+
+        await Api.UpdateCartItemAsync(productId, quantity);
+        cart = await Api.GetCartAsync();
+    }
+
+    private async Task RemoveAsync(int productId)
+    {
+        await Api.RemoveCartItemAsync(productId);
+        cart = await Api.GetCartAsync();
+    }
+
+    private async Task SubmitCheckoutAsync()
+    {
+        submitting = true;
+        message = null;
+        var orderId = await Api.CheckoutAsync(checkout.ToRequest());
+        if (orderId is null)
+        {
+            message = "Nao foi possivel finalizar o pedido. Revise os dados e o estoque.";
+        }
+        else
+        {
+            message = $"Pedido #{orderId} criado com sucesso.";
+            cart = await Api.GetCartAsync();
+        }
+
+        submitting = false;
+    }
+
+    private sealed class CheckoutForm
+    {
+        public string Name { get; set; } = string.Empty;
+        public string CardOwnerName { get; set; } = string.Empty;
+        public string ExpirationDate { get; set; } = string.Empty;
+        public string Address { get; set; } = string.Empty;
+        public string Neighborhood { get; set; } = string.Empty;
+        public string Cep { get; set; } = string.Empty;
+        public string City { get; set; } = string.Empty;
+        public string Cpf { get; set; } = string.Empty;
+        public int StateId { get; set; }
+        public string? Complement { get; set; }
+
+        public CheckoutRequest ToRequest() =>
+            new(Name, CardOwnerName, ExpirationDate, Address, Neighborhood, Cep, City, Cpf, StateId, Complement);
+    }
+}

@@ -1,0 +1,64 @@
+@inject MarketplaceApiClient Api
+
+<article class="market-product-card">
+    <a class="market-product-media" href="products/@Product.Id" aria-label="Ver @Product.Title">
+        @if (!string.IsNullOrWhiteSpace(Product.Image))
+        {
+            <img src="@Api.AssetUrl(Product.Image)" alt="@Product.Title" loading="lazy" />
+        }
+        else
+        {
+            <span>produto</span>
+        }
+        @if (Product.Offer)
+        {
+            <span class="market-badge">Oferta</span>
+        }
+    </a>
+    <div class="market-product-body">
+        <a class="market-product-title" href="products/@Product.Id">@Product.Title</a>
+        @if (!string.IsNullOrWhiteSpace(Product.Seller))
+        {
+            <span class="market-product-seller">@Product.Seller</span>
+        }
+        <div class="market-product-price-row">
+            <strong class="market-product-price">@Product.Price.ToString("C")</strong>
+            @if (Product.Stock <= 0)
+            {
+                <span class="stock-pill unavailable">Indisponivel</span>
+            }
+            else
+            {
+                <span class="stock-pill">Estoque</span>
+            }
+        </div>
+        <div class="market-product-actions">
+            <a class="btn btn-primary" href="products/@Product.Id">Comprar</a>
+            @if (ShowRemove)
+            {
+                <button class="btn btn-outline-danger" type="button" @onclick="RemoveAsync">Remover</button>
+            }
+            else
+            {
+                <a class="btn btn-outline-secondary" href="products/@Product.Id" aria-label="Ver detalhes de @Product.Title">Detalhes</a>
+                <a class="btn btn-outline-secondary wishlist-button" href="products/@Product.Id" aria-label="Salvar @Product.Title para depois">♡</a>
+            }
+        </div>
+    </div>
+</article>
+
+@code {
+    [Parameter, EditorRequired]
+    public ProductSummary Product { get; set; } = default!;
+
+    [Parameter]
+    public bool ShowRemove { get; set; }
+
+    [Parameter]
+    public EventCallback<int> OnRemove { get; set; }
+
+    private async Task RemoveAsync()
+    {
+        await OnRemove.InvokeAsync(Product.Id);
+    }
+}

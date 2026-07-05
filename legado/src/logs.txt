@@ -1,0 +1,28 @@
+21 - 13
+22 - 14
+errosql
+SellerRepository: Array
+23 - 15
+errosql
+SellerRepository: Array
+24 - 16
+errosql
+SellerRepository: Array
+25 - 17
+errosql
+SellerRepository: Array
+26 - 18
+atualizando pessoa física
+SellerRepository update: Array
+atualizando pessoa física
+SellerRepository update: Array
+atualizando pessoa física
+SellerRepository update: Array
+28 - 22
+5 - 1
+atualizando pessoa física
+SellerRepository update: Array
+atualizando pessoa física
+SellerRepository update: Array
+atualizando pessoa física
+SellerRepository update: Array

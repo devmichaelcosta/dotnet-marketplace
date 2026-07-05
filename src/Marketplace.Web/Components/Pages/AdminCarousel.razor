@@ -1,0 +1,155 @@
+@page "/admin/carousel"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Components.Forms
+@inject MarketplaceApiClient Api
+@inject ClientState State
+
+<PageTitle>Destaques</PageTitle>
+
+<div class="toolbar">
+    <div>
+        <h1>Destaques</h1>
+        <p>Imagens do carousel da home.</p>
+    </div>
+</div>
+
+@if (!State.IsAuthenticated)
+{
+    <p>Faca login como admin para acessar esta area.</p>
+}
+else if (loading)
+{
+    <p>Carregando destaques...</p>
+}
+else
+{
+    @if (!string.IsNullOrWhiteSpace(message))
+    {
+        <p class="notice">@message</p>
+    }
+
+    <section class="admin-grid">
+        <EditForm Model="form" OnValidSubmit="SaveAsync" FormName="carousel-form" class="form-panel wide-form">
+            <DataAnnotationsValidator />
+            <h2>@(form.Id is null ? "Novo destaque" : "Editar destaque")</h2>
+            <label>
+                Imagem
+                <InputText class="form-control" @bind-Value="form.FileName" />
+            </label>
+            <InputFile OnChange="UploadAsync" accept="image/*" />
+            <label>
+                Ordem
+                <InputNumber class="form-control" @bind-Value="form.SortOrder" />
+            </label>
+            @if (!string.IsNullOrWhiteSpace(form.FileName))
+            {
+                <img class="admin-preview" src="@Api.AssetUrl(form.FileName)" alt="Preview do destaque" />
+            }
+            <div class="form-actions">
+                <button class="btn btn-primary" type="submit">Salvar</button>
+                <button class="btn btn-outline-secondary" type="button" @onclick="ResetForm">Limpar</button>
+            </div>
+        </EditForm>
+
+        <div class="table-panel">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Imagem</th>
+                        <th>Ordem</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var image in carousel)
+                    {
+                        <tr>
+                            <td>
+                                <img class="thumb" src="@Api.AssetUrl(image.FileName)" alt="Destaque" />
+                                <span>@image.FileName</span>
+                            </td>
+                            <td>@image.SortOrder</td>
+                            <td class="table-actions">
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => Edit(image)">Editar</button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(image.Id)">Excluir</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+}
+
+@code {
+    private bool loading;
+    private string? message;
+    private AdminCarouselImage[] carousel = [];
+    private CarouselForm form = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (State.IsAuthenticated)
+        {
+            await LoadAsync();
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        carousel = await Api.GetCarouselAsync();
+        loading = false;
+    }
+
+    private async Task UploadAsync(InputFileChangeEventArgs args)
+    {
+        var result = await Api.UploadImageAsync("carousel", args.File);
+        if (result is null)
+        {
+            message = "Nao foi possivel enviar a imagem.";
+            return;
+        }
+
+        form.FileName = result.Url;
+        message = "Imagem enviada.";
+    }
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(form.FileName))
+        {
+            message = "Informe uma imagem.";
+            return;
+        }
+
+        await Api.SaveCarouselAsync(new AdminCarouselRequest(form.Id, form.FileName.Trim(), form.SortOrder));
+        message = "Destaque salvo.";
+        ResetForm();
+        await LoadAsync();
+    }
+
+    private void Edit(AdminCarouselImage image)
+    {
+        form = new CarouselForm { Id = image.Id, FileName = image.FileName, SortOrder = image.SortOrder };
+    }
+
+    private async Task DeleteAsync(int id)
+    {
+        await Api.DeleteCarouselAsync(id);
+        message = "Destaque excluido.";
+        await LoadAsync();
+    }
+
+    private void ResetForm()
+    {
+        form = new CarouselForm();
+    }
+
+    private sealed class CarouselForm
+    {
+        public int? Id { get; set; }
+        public string FileName { get; set; } = string.Empty;
+        public int SortOrder { get; set; }
+    }
+}

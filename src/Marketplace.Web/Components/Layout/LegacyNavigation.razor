@@ -1,0 +1,185 @@
+@rendermode InteractiveServer
+@implements IDisposable
+@inject Marketplace.Web.Services.ClientState ClientState
+@inject Marketplace.Web.Services.MarketplaceApiClient Api
+@inject IJSRuntime Js
+
+<header class="container-nav amazon-nav">
+    <div class="amazon-topbar">
+        <a class="navbar-brand legacy-brand amazon-brand" href="">
+            <span class="logo-strong">L</span>oja<span class="logo-strong">W</span>hatever
+        </a>
+
+        <a class="amazon-location" href="profile" aria-label="Endereco de entrega">
+            <span>Entregar em</span>
+            <strong>Caxias do Sul</strong>
+        </a>
+
+        <form class="legacy-search amazon-search" action="/" method="get">
+            <div class="input-group">
+                <label class="amazon-search-scope" for="marketSearch">Todos</label>
+                <input id="marketSearch" class="form-control" type="search" name="s" placeholder="Pesquisar produto" aria-label="Pesquisar produto" />
+                <button class="btn legacy-search-button" type="submit" aria-label="Pesquisar"></button>
+            </div>
+        </form>
+
+        <div class="login-nav amazon-account">
+            @if (ClientState.IsAuthenticated)
+            {
+                <span>Ola, <a class="a-primary" href="profile">@ClientState.UserName</a></span>
+                <button class="btn btn-link a-primary p-0" type="button" @onclick="SignOut">Sair</button>
+            }
+            else
+            {
+                <span>Ola, faca seu <a class="a-primary" href="login">login</a></span>
+                <strong>Conta e listas</strong>
+            }
+        </div>
+
+        <div class="legacy-actions amazon-actions">
+            @if (ClientState.IsAuthenticated)
+            {
+                <a href="liked" class="btn btn-outline-light">Curtidos</a>
+            }
+            <a href="cart" class="btn btn-outline-light legacy-cart-button"><span class="legacy-cart-icon"></span><span class="badge">@cartCount</span></a>
+            <ThemeToggle />
+        </div>
+    </div>
+
+    <div class="amazon-subnav">
+        <button class="amazon-all-button" type="button" @onclick="OpenDrawer" aria-expanded="@drawerOpen" aria-controls="amazonSideMenu">
+            <span class="amazon-burger" aria-hidden="true"><span></span><span></span><span></span></span>
+            Todos
+        </button>
+        <nav class="legacy-menu amazon-menu" aria-label="Menu principal">
+            <a href="">Home</a>
+            <a href="cart">Carrinho</a>
+            <a href="sell">Venda na LojaWhatever</a>
+            <a href="/?offer=true">Ofertas</a>
+            @if (ClientState.IsAuthenticated)
+            {
+                <div class="legacy-dropdown">
+                    <button type="button">Area administrativa</button>
+                    <div class="legacy-dropdown-menu">
+                        <a class="dropdown-item" href="orders">Minhas Compras</a>
+                        @if (ClientState.IsSeller || ClientState.IsAdmin)
+                        {
+                            <a class="dropdown-item" href="admin/products">Produtos</a>
+                        }
+                        @if (ClientState.IsAdmin)
+                        {
+                            <a class="dropdown-item" href="admin/catalog">Categorias</a>
+                            <a class="dropdown-item" href="admin/product-imports">Importacoes</a>
+                            <a class="dropdown-item" href="admin/carousel">Destaques</a>
+                            <a class="dropdown-item" href="admin/sellers">Vendedores</a>
+                            <a class="dropdown-item" href="admin/users">Usuarios</a>
+                            <a class="dropdown-item" href="admin/orders">Pedidos</a>
+                            <a class="dropdown-item" href="admin/ratings">Avaliacoes</a>
+                        }
+                    </div>
+                </div>
+            }
+        </nav>
+    </div>
+</header>
+
+<div class="amazon-drawer-layer @(drawerOpen ? "is-open" : null)">
+    <button class="amazon-drawer-backdrop" type="button" @onclick="CloseDrawer" aria-label="Fechar menu"></button>
+    <aside id="amazonSideMenu" class="amazon-drawer" aria-label="Menu de departamentos">
+        <div class="amazon-drawer-header">
+            <strong>@(ClientState.IsAuthenticated ? $"Ola, {ClientState.UserName}" : "Ola, faca seu login")</strong>
+            <button type="button" @onclick="CloseDrawer" aria-label="Fechar">x</button>
+        </div>
+        <section>
+            <h2>Destaques</h2>
+            <a href="" @onclick="CloseDrawer">Home</a>
+            <a href="/?offer=true" @onclick="CloseDrawer">Ofertas</a>
+            <a href="sell" @onclick="CloseDrawer">Venda na LojaWhatever</a>
+            <a href="cart" @onclick="CloseDrawer">Carrinho</a>
+        </section>
+        <section>
+            <h2>Comprar por categoria</h2>
+            @if (categories.Length == 0)
+            {
+                <span class="amazon-drawer-muted">Carregando categorias...</span>
+            }
+            else
+            {
+                @foreach (var category in categories)
+                {
+                    <a href="/?categoryId=@category.Id" @onclick="CloseDrawer">@category.Title</a>
+                }
+            }
+        </section>
+        @if (ClientState.IsAuthenticated)
+        {
+            <section>
+                <h2>Conta e administracao</h2>
+                <a href="orders" @onclick="CloseDrawer">Minhas compras</a>
+                <a href="profile" @onclick="CloseDrawer">Minha conta</a>
+                @if (ClientState.IsSeller || ClientState.IsAdmin)
+                {
+                    <a href="admin/products" @onclick="CloseDrawer">Produtos</a>
+                }
+                @if (ClientState.IsAdmin)
+                {
+                    <a href="admin/product-imports" @onclick="CloseDrawer">Importacoes</a>
+                    <a href="admin/catalog" @onclick="CloseDrawer">Categorias</a>
+                    <a href="admin/users" @onclick="CloseDrawer">Usuarios</a>
+                }
+            </section>
+        }
+    </aside>
+</div>
+
+@code {
+    private Marketplace.Web.Services.Category[] categories = [];
+    private int cartCount;
+    private bool drawerOpen;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ClientState.Changed += OnStateChanged;
+        try
+        {
+            var home = await Api.GetHomeAsync();
+            categories = home?.Categories ?? [];
+            await RefreshCartCountAsync();
+        }
+        catch
+        {
+            categories = [];
+        }
+    }
+
+    private async Task SignOut()
+    {
+        ClientState.SignOut();
+        await Js.InvokeVoidAsync("marketplaceAuth.clear");
+        CloseDrawer();
+    }
+
+    private void OpenDrawer() => drawerOpen = true;
+
+    private void CloseDrawer() => drawerOpen = false;
+
+    private async Task RefreshCartCountAsync()
+    {
+        var cart = await Api.GetCartAsync();
+        cartCount = cart?.Items.Sum(item => item.Quantity) ?? 0;
+    }
+
+    private void OnStateChanged()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            await RefreshCartCountAsync();
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        ClientState.Changed -= OnStateChanged;
+    }
+}

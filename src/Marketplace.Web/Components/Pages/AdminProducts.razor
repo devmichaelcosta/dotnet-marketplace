@@ -1,0 +1,280 @@
+@page "/admin/products"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Components.Forms
+@inject MarketplaceApiClient Api
+@inject ClientState State
+
+<PageTitle>Produtos</PageTitle>
+
+<div class="toolbar">
+    <div>
+        <h1>Produtos</h1>
+        <p>Cadastro administrativo de produtos migrado para Blazor.</p>
+    </div>
+</div>
+
+@if (!State.IsAuthenticated)
+{
+    <p>Faca login como admin ou vendedor para acessar esta area.</p>
+}
+else if (loading)
+{
+    <p>Carregando produtos...</p>
+}
+else
+{
+    @if (!string.IsNullOrWhiteSpace(message))
+    {
+        <p class="notice">@message</p>
+    }
+
+    <section class="admin-grid product-admin-grid">
+        <EditForm Model="form" OnValidSubmit="SaveAsync" FormName="product-form" class="form-panel wide-form">
+            <DataAnnotationsValidator />
+            <h2>@(form.Id is null ? "Novo produto" : "Editar produto")</h2>
+            <label>
+                Titulo
+                <InputText class="form-control" @bind-Value="form.Title" />
+            </label>
+            <label>
+                Descricao
+                <InputTextArea class="form-control" @bind-Value="form.Description" />
+            </label>
+            <div class="checkout-grid compact-grid">
+                <label>
+                    Preco
+                    <InputNumber class="form-control" @bind-Value="form.Price" />
+                </label>
+                <label>
+                    Estoque
+                    <InputNumber class="form-control" @bind-Value="form.Stock" />
+                </label>
+                <label>
+                    SKU
+                    <InputText class="form-control" @bind-Value="form.Sku" />
+                </label>
+                <label>
+                    Subcategoria
+                    <InputSelect class="form-control" @bind-Value="form.SubCategoryId">
+                        <option value="">Sem subcategoria</option>
+                        @foreach (var subCategory in subCategories)
+                        {
+                            <option value="@subCategory.Id">@subCategory.Title</option>
+                        }
+                    </InputSelect>
+                </label>
+            </div>
+            <label class="form-check-row">
+                <InputCheckbox class="form-check-input" @bind-Value="form.Offer" />
+                Produto em oferta
+            </label>
+            <label>
+                Imagens
+                <InputTextArea class="form-control" @bind-Value="form.ImagesText" />
+            </label>
+            <InputFile OnChange="UploadProductImageAsync" accept="image/*" />
+            <label>
+                Atributos
+                <InputTextArea class="form-control" @bind-Value="form.AttributesText" />
+            </label>
+            <div class="reference-list">
+                @foreach (var catalogAttribute in attributes)
+                {
+                    <span>@catalogAttribute.Id=@catalogAttribute.Name</span>
+                }
+            </div>
+            <label>
+                Produtos similares
+                <InputText class="form-control" placeholder="1,2,3" @bind-Value="form.SimilarProductsText" />
+            </label>
+            <div class="form-actions">
+                <button class="btn btn-primary" type="submit">Salvar</button>
+                <button class="btn btn-outline-secondary" type="button" @onclick="ResetForm">Limpar</button>
+            </div>
+        </EditForm>
+
+        <div class="table-panel">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Produto</th>
+                        <th>SKU</th>
+                        <th>Estoque</th>
+                        <th>Preco</th>
+                        <th>Vendedor</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var product in products?.Items ?? [])
+                    {
+                    <tr>
+                        <td>@product.Title</td>
+                        <td>@product.Sku</td>
+                        <td>@product.Stock</td>
+                        <td>@product.Price.ToString("C")</td>
+                        <td>@product.Seller</td>
+                        <td class="table-actions">
+                            <button class="btn btn-sm btn-outline-secondary" @onclick="() => EditAsync(product.Id)">Editar</button>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(product.Id)">Excluir</button>
+                        </td>
+                    </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+}
+
+@code {
+    private AdminProductSearchResponse? products;
+    private AdminSubCategory[] subCategories = [];
+    private AdminAttribute[] attributes = [];
+    private ProductForm form = new();
+    private bool loading;
+    private string? message;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (State.IsAuthenticated)
+        {
+            await LoadAsync();
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        products = await Api.GetAdminProductsAsync();
+        subCategories = await Api.GetAdminSubCategoriesAsync();
+        attributes = await Api.GetAdminAttributesAsync();
+        loading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(form.Title) || string.IsNullOrWhiteSpace(form.Description) || string.IsNullOrWhiteSpace(form.Sku))
+        {
+            message = "Informe titulo, descricao e SKU.";
+            return;
+        }
+
+        var productId = await Api.SaveProductAsync(form.ToRequest());
+        var id = form.Id ?? productId;
+        if (id is not null)
+        {
+            await Api.SaveSimilarProductsAsync(id.Value, form.SimilarProductIds());
+        }
+
+        message = "Produto salvo.";
+        ResetForm();
+        await LoadAsync();
+    }
+
+    private async Task EditAsync(int id)
+    {
+        var product = await Api.GetAdminProductAsync(id);
+        if (product is null)
+        {
+            message = "Produto nao encontrado.";
+            return;
+        }
+
+        form = ProductForm.From(product, attributes);
+    }
+
+    private async Task DeleteAsync(int id)
+    {
+        await Api.DeleteProductAsync(id);
+        message = "Produto excluido.";
+        await LoadAsync();
+    }
+
+    private async Task UploadProductImageAsync(InputFileChangeEventArgs args)
+    {
+        var result = await Api.UploadImageAsync("products", args.File);
+        if (result is null)
+        {
+            message = "Nao foi possivel enviar a imagem.";
+            return;
+        }
+
+        form.ImagesText = string.IsNullOrWhiteSpace(form.ImagesText)
+            ? result.Url
+            : $"{form.ImagesText}{Environment.NewLine}{result.Url}";
+        message = "Imagem enviada.";
+    }
+
+    private void ResetForm()
+    {
+        form = new ProductForm();
+    }
+
+    private sealed class ProductForm
+    {
+        public int? Id { get; set; }
+        public int? SubCategoryId { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public decimal Price { get; set; }
+        public int Stock { get; set; }
+        public bool Offer { get; set; }
+        public string Sku { get; set; } = string.Empty;
+        public string ImagesText { get; set; } = string.Empty;
+        public string AttributesText { get; set; } = string.Empty;
+        public string SimilarProductsText { get; set; } = string.Empty;
+
+        public AdminProductRequest ToRequest() =>
+            new(
+                Id,
+                null,
+                SubCategoryId,
+                Title.Trim(),
+                Description.Trim(),
+                Price,
+                Stock,
+                Offer,
+                Sku.Trim(),
+                Lines(ImagesText),
+                AttributeLines(AttributesText));
+
+        public int[] SimilarProductIds() =>
+            SimilarProductsText
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(value => int.TryParse(value, out _))
+                .Select(int.Parse)
+                .Distinct()
+                .ToArray();
+
+        public static ProductForm From(AdminProductDetails product, AdminAttribute[] knownAttributes) =>
+            new()
+            {
+                Id = product.Id,
+                SubCategoryId = product.SubCategoryId,
+                Title = product.Title,
+                Description = product.Description,
+                Price = product.Price,
+                Stock = product.Stock,
+                Offer = product.Offer,
+                Sku = product.Sku,
+                ImagesText = string.Join(Environment.NewLine, product.Images),
+                SimilarProductsText = string.Join(",", product.SimilarProductIds),
+                AttributesText = string.Join(
+                    Environment.NewLine,
+                    product.Attributes.Select(item =>
+                    {
+                        return $"{item.AttributeId}={item.Value}";
+                    }))
+            };
+
+        private static string[] Lines(string value) =>
+            value.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        private static ProductAttributeValueRequest[] AttributeLines(string value) =>
+            Lines(value)
+                .Select(line => line.Split('=', 2, StringSplitOptions.TrimEntries))
+                .Where(parts => parts.Length == 2 && int.TryParse(parts[0], out _))
+                .Select(parts => new ProductAttributeValueRequest(int.Parse(parts[0]), parts[1]))
+                .ToArray();
+    }
+}

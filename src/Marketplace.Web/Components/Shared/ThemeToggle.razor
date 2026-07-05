@@ -1,0 +1,25 @@
+@rendermode InteractiveServer
+@inject IJSRuntime JS
+
+<button class="theme-toggle" type="button" title="Alternar tema" aria-label="Alternar tema" @onclick="ToggleAsync">
+    <span class="theme-toggle-icon" aria-hidden="true"></span>
+    <span class="theme-toggle-text">@label</span>
+</button>
+
+@code {
+    private string label = "Tema";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            label = await JS.InvokeAsync<string>("marketplaceTheme.init");
+            StateHasChanged();
+        }
+    }
+
+    private async Task ToggleAsync()
+    {
+        label = await JS.InvokeAsync<string>("marketplaceTheme.toggle");
+    }
+}

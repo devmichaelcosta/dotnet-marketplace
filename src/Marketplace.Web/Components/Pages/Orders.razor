@@ -1,0 +1,97 @@
+@page "/orders"
+@rendermode InteractiveServer
+@inject MarketplaceApiClient Api
+@inject ClientState State
+
+<PageTitle>Minhas compras</PageTitle>
+
+<nav class="nav-breadcrumb nav-breadcrumb-dark">
+    <a href="/">Compras</a>
+    <span>Lista de compras</span>
+</nav>
+
+@if (!State.IsAuthenticated)
+{
+    <div class="legacy-info-card">Faca login para consultar seus pedidos.</div>
+}
+else if (orders is null)
+{
+    <div class="legacy-info-card">Carregando pedidos...</div>
+}
+else if (orders.Length == 0)
+{
+    <div class="legacy-info-card">Nenhum pedido encontrado.</div>
+}
+else
+{
+    <div class="orders-layout">
+        <div class="legacy-info-card">
+            <h5>Veja abaixo as compras disponiveis.</h5>
+            <table class="table cols-centered">
+                <thead>
+                    <tr>
+                        <th>Pedido</th>
+                        <th>Data</th>
+                        <th>Entrega</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var order in orders)
+                    {
+                        <tr class="selectable-row" @onclick="() => LoadDetailsAsync(order.Id)">
+                            <td>#@order.Id</td>
+                            <td>@order.CreatedAt.LocalDateTime.ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>@order.Name - @order.City</td>
+                            <td>@order.Total.ToString("C")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (details is not null)
+        {
+            <aside class="legacy-info-card order-details">
+                <h2>Pedido #@details.Id</h2>
+                <p>@details.Address, @details.Neighborhood - @details.City/@details.State</p>
+                @if (!string.IsNullOrWhiteSpace(details.Complement))
+                {
+                    <p>@details.Complement</p>
+                }
+
+                @foreach (var item in details.Items)
+                {
+                    <div class="cart-row compact">
+                        <span>@item.Title</span>
+                        <span>@item.Quantity x @item.UnitPrice.ToString("C")</span>
+                        <strong>@item.SubTotal.ToString("C")</strong>
+                    </div>
+                }
+
+                <div class="cart-total compact">
+                    <span>Total</span>
+                    <strong>@details.Total.ToString("C")</strong>
+                </div>
+            </aside>
+        }
+    </div>
+}
+
+@code {
+    private OrderSummary[]? orders;
+    private OrderDetails? details;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (State.IsAuthenticated)
+        {
+            orders = await Api.GetOrdersAsync();
+        }
+    }
+
+    private async Task LoadDetailsAsync(int id)
+    {
+        details = await Api.GetOrderDetailsAsync(id);
+    }
+}

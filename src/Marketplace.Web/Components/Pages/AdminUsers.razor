@@ -1,0 +1,175 @@
+@page "/admin/users"
+@rendermode InteractiveServer
+@inject MarketplaceApiClient Api
+@inject ClientState State
+
+<PageTitle>Usuarios</PageTitle>
+
+<div class="toolbar">
+    <div>
+        <h1>Usuarios</h1>
+        <p>Contas, dados basicos e perfil de acesso.</p>
+    </div>
+</div>
+
+@if (!State.IsAuthenticated)
+{
+    <p>Faca login como admin para acessar esta area.</p>
+}
+else if (loading)
+{
+    <p>Carregando usuarios...</p>
+}
+else
+{
+    @if (!string.IsNullOrWhiteSpace(message))
+    {
+        <p class="notice">@message</p>
+    }
+
+    <section class="admin-grid">
+        <EditForm Model="form" OnValidSubmit="SaveAsync" FormName="user-form" class="form-panel wide-form">
+            <DataAnnotationsValidator />
+            <h2>@(form.Id is null ? "Novo usuario" : "Editar usuario")</h2>
+            <label>
+                Nome
+                <InputText class="form-control" @bind-Value="form.Name" />
+            </label>
+            <label>
+                Sobrenome
+                <InputText class="form-control" @bind-Value="form.LastName" />
+            </label>
+            <label>
+                Login
+                <InputText class="form-control" @bind-Value="form.Login" />
+            </label>
+            <label>
+                CPF
+                <InputText class="form-control" @bind-Value="form.Cpf" />
+            </label>
+            <label>
+                Perfil
+                <InputSelect class="form-control" @bind-Value="form.Role">
+                    <option value="comum">Comum</option>
+                    <option value="vendedor">Vendedor</option>
+                    <option value="admin">Admin</option>
+                </InputSelect>
+            </label>
+            <label>
+                Senha
+                <InputText class="form-control" type="password" @bind-Value="form.Password" />
+            </label>
+            <div class="form-actions">
+                <button class="btn btn-primary" type="submit">Salvar</button>
+                <button class="btn btn-outline-secondary" type="button" @onclick="ResetForm">Limpar</button>
+            </div>
+        </EditForm>
+
+        <div class="table-panel">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Usuario</th>
+                        <th>Login</th>
+                        <th>Perfil</th>
+                        <th>CPF</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in users)
+                    {
+                        <tr>
+                            <td>@user.Name @user.LastName</td>
+                            <td>@user.Login</td>
+                            <td>@user.Role</td>
+                            <td>@user.Cpf</td>
+                            <td class="table-actions">
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => Edit(user)">Editar</button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(user.Id)">Excluir</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+}
+
+@code {
+    private bool loading;
+    private string? message;
+    private AdminUser[] users = [];
+    private UserForm form = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (State.IsAuthenticated)
+        {
+            await LoadAsync();
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        users = await Api.GetAdminUsersAsync();
+        loading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(form.Name) || string.IsNullOrWhiteSpace(form.Login))
+        {
+            message = "Informe nome e login.";
+            return;
+        }
+
+        if (form.Id is null && string.IsNullOrWhiteSpace(form.Password))
+        {
+            message = "Senha obrigatoria para novo usuario.";
+            return;
+        }
+
+        await Api.SaveUserAsync(new AdminUserRequest(form.Id, form.Name.Trim(), form.LastName.Trim(), form.Login.Trim(), form.Password, form.Cpf, form.Role));
+        message = "Usuario salvo.";
+        ResetForm();
+        await LoadAsync();
+    }
+
+    private void Edit(AdminUser user)
+    {
+        form = new UserForm
+        {
+            Id = user.Id,
+            Name = user.Name,
+            LastName = user.LastName,
+            Login = user.Login,
+            Cpf = user.Cpf,
+            Role = user.Role
+        };
+    }
+
+    private async Task DeleteAsync(Guid id)
+    {
+        await Api.DeleteUserAsync(id);
+        message = "Usuario excluido.";
+        await LoadAsync();
+    }
+
+    private void ResetForm()
+    {
+        form = new UserForm();
+    }
+
+    private sealed class UserForm
+    {
+        public Guid? Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Login { get; set; } = string.Empty;
+        public string? Password { get; set; }
+        public string? Cpf { get; set; }
+        public string Role { get; set; } = "comum";
+    }
+}

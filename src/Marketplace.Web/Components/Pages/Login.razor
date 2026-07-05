@@ -1,0 +1,67 @@
+@page "/login"
+@rendermode InteractiveServer
+@inject MarketplaceApiClient Api
+@inject ClientState State
+@inject IJSRuntime Js
+
+<PageTitle>Login</PageTitle>
+
+@if (State.IsAuthenticated)
+{
+    <section class="legacy-auth-shell">
+        <div class="legacy-auth-card">
+            <h1 class="h4 mb-3 text-center">Logado como <strong>@State.UserName</strong></h1>
+            <button class="btn btn-lg btn-block btn-outline-dark w-100" @onclick="SignOutAsync">Sair</button>
+        </div>
+    </section>
+}
+else
+{
+    <section class="legacy-auth-shell">
+        <div class="legacy-auth-card">
+            <span class="market-eyebrow text-center">Bem-vindo de volta</span>
+            <h1 class="h4 mb-3 font-weight-normal text-center">Entre para continuar comprando</h1>
+            <div class="social-login-row" aria-label="Login social preparado para futura integracao">
+                <button class="btn btn-outline-secondary" type="button" disabled>Google</button>
+                <button class="btn btn-outline-secondary" type="button" disabled>Apple</button>
+            </div>
+            <div class="auth-divider"><span>ou use seu login</span></div>
+            <label class="sr-only" for="login">Login</label>
+            <input id="login" class="form-control" placeholder="Informe seu login" @bind="login" />
+            <label class="sr-only" for="password">Senha</label>
+            <input id="password" class="form-control" type="password" placeholder="Informe sua senha" @bind="password" />
+            <button class="btn btn-lg btn-block mt-3 btn-primary w-100" @onclick="SignInAsync">Entrar</button>
+            <a class="a-primary d-block text-center mt-3" href="register">Criar uma conta</a>
+            <a class="muted d-block text-center mt-2" href="recover-password">Esqueci minha senha</a>
+        @if (!string.IsNullOrWhiteSpace(error))
+        {
+            <p class="text-danger">@error</p>
+        }
+        </div>
+    </section>
+}
+
+@code {
+    private string login = string.Empty;
+    private string password = string.Empty;
+    private string? error;
+
+    private async Task SignInAsync()
+    {
+        error = null;
+        var result = await Api.LoginAsync(login, password);
+        if (result is null)
+        {
+            error = "Login ou senha invalidos.";
+            return;
+        }
+
+        await Js.InvokeVoidAsync("marketplaceAuth.save", State.Snapshot);
+    }
+
+    private async Task SignOutAsync()
+    {
+        State.SignOut();
+        await Js.InvokeVoidAsync("marketplaceAuth.clear");
+    }
+}

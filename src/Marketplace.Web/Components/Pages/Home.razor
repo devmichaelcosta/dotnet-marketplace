@@ -1,0 +1,263 @@
+@page "/"
+@rendermode InteractiveServer
+@inject MarketplaceApiClient Api
+@inject IJSRuntime JS
+
+<PageTitle>Marketplace</PageTitle>
+
+@if (loading)
+{
+    <section class="market-skeleton-shell" aria-label="Carregando catalogo">
+        <div class="skeleton hero-skeleton"></div>
+        <div class="skeleton-line"></div>
+        <div class="skeleton-grid">
+            <div class="skeleton card-skeleton"></div>
+            <div class="skeleton card-skeleton"></div>
+            <div class="skeleton card-skeleton"></div>
+        </div>
+    </section>
+}
+else
+{
+    @if (!IsSearchMode && carousel.Length > 0)
+    {
+        var orderedCarousel = carousel.OrderBy(item => item.SortOrder).ToArray();
+        <section id="homeCarousel" class="carousel slide home-hero" data-bs-ride="carousel" data-bs-interval="4500">
+            <div class="carousel-indicators">
+                @for (var index = 0; index < orderedCarousel.Length; index++)
+                {
+                    <button type="button"
+                            data-bs-target="#homeCarousel"
+                            data-bs-slide-to="@index"
+                            class="@(index == 0 ? "active" : null)"
+                            aria-current="@(index == 0 ? "true" : null)"
+                            aria-label="Destaque @(index + 1)"></button>
+                }
+            </div>
+            <div class="carousel-inner">
+                @for (var index = 0; index < orderedCarousel.Length; index++)
+                {
+                    var image = orderedCarousel[index];
+                    <div class="carousel-item @(index == 0 ? "active" : null)">
+                        <img src="@Api.AssetUrl(image.FileName)" class="d-block w-100" alt="Destaque @(index + 1)" />
+                    </div>
+                }
+            </div>
+            @if (orderedCarousel.Length > 1)
+            {
+                <button class="carousel-control-prev" type="button" data-bs-target="#homeCarousel" data-bs-slide="prev" aria-label="Destaque anterior">
+                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                </button>
+                <button class="carousel-control-next" type="button" data-bs-target="#homeCarousel" data-bs-slide="next" aria-label="Proximo destaque">
+                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                </button>
+            }
+        </section>
+    }
+
+    @if (!IsSearchMode)
+    {
+        <section class="market-home-intro">
+            <div>
+                <span class="market-eyebrow">Marketplace premium</span>
+                <h1>Descubra produtos selecionados para comprar sem atrito</h1>
+            </div>
+            <p>Ofertas, novidades e recomendacoes organizadas para voce encontrar rapido o que precisa.</p>
+        </section>
+
+        <h2 class="home-section-title">Categorias em destaque</h2>
+        <section class="linhas-list market-category-strip">
+            @foreach (var category in categories)
+            {
+                <a class="home-category" href="/?categoryId=@category.Id">
+                    <span class="home-category-image">
+                        @if (!string.IsNullOrWhiteSpace(category.Image))
+                        {
+                            <img src="@Api.AssetUrl(category.Image)" alt="@category.Title" />
+                        }
+                    </span>
+                    <span class="card-linha-title">@category.Title</span>
+                </a>
+            }
+        </section>
+
+        <ProductRail Title="Ofertas em destaque" Products="PromotionProducts" />
+        <ProductRail Title="Produtos recentes" Products="RecentProducts" />
+        <ProductRail Title="Mais vendidos" Products="BestSellerProducts" />
+        <ProductRail Title="Recomendados para voce" Products="RecommendedProducts" />
+    }
+    else
+    {
+        <nav class="nav-breadcrumb nav-breadcrumb-dark">
+            <a href="/">Produtos</a>
+            <span>Resultado da pesquisa</span>
+        </nav>
+        <div class="card bg-light legacy-count-card">
+            <div class="card-header"><span>@totalProducts</span> produtos encontrados</div>
+        </div>
+    }
+
+    @if (IsSearchMode)
+    {
+        <section class="search-results-layout">
+            <SearchFilterPanel Categories="categories" SelectedCategoryId="CategoryId" />
+            <div>
+                <section class="home-offers-grid @(IsSearchMode ? "legacy-search-grid" : null)">
+                    @foreach (var product in products)
+                    {
+                        <ProductCard Product="product" />
+                    }
+                </section>
+            </div>
+        </section>
+    }
+    else if (products.Length == 0)
+    {
+        <section class="market-empty-state">
+            <h2>Nenhum produto em destaque por enquanto</h2>
+            <p>Assim que novos produtos forem publicados, eles aparecerao aqui.</p>
+        </section>
+    }
+
+    @if (IsSearchMode && products.Length == 0)
+    {
+        <section class="market-empty-state">
+            <h2>Nenhum produto encontrado</h2>
+            <p>Tente ajustar a busca ou navegar pelas categorias.</p>
+        </section>
+    }
+
+    @if (IsSearchMode && TotalPages > 1)
+    {
+        <nav class="legacy-pagination" aria-label="Paginacao">
+            @for (var pageNumber = 1; pageNumber <= TotalPages; pageNumber++)
+            {
+                <a class="page-link @(pageNumber == CurrentPage ? "active" : null)" href="@PageHref(pageNumber)">@pageNumber</a>
+            }
+        </nav>
+    }
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "s")]
+    public string? SearchTerm { get; set; }
+
+    [SupplyParameterFromQuery(Name = "categoryId")]
+    public int? CategoryId { get; set; }
+
+    [SupplyParameterFromQuery(Name = "page")]
+    public int? Page { get; set; }
+
+    private bool loading = true;
+    private string? search;
+    private int totalProducts;
+    private int pageSize = 12;
+    private CarouselImage[] carousel = [];
+    private Category[] categories = [];
+    private ProductSummary[] products = [];
+    private bool carouselInitialized;
+    private ProductSummary[] PromotionProducts => products.Any(product => product.Offer)
+        ? products.Where(product => product.Offer).Take(8).ToArray()
+        : products.Take(8).ToArray();
+    private ProductSummary[] RecentProducts => products.OrderByDescending(product => product.Id).Take(8).ToArray();
+    private ProductSummary[] BestSellerProducts => products.OrderBy(product => product.Stock).Take(8).ToArray();
+    private ProductSummary[] RecommendedProducts => products.OrderBy(product => product.Title).Take(8).ToArray();
+    private bool IsSearchMode => !string.IsNullOrWhiteSpace(search) || CategoryId is not null;
+    private int CurrentPage => Math.Max(1, Page ?? 1);
+    private int TotalPages => pageSize == 0 ? 1 : (int)Math.Ceiling(totalProducts / (double)pageSize);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        search = SearchTerm;
+        if (!loading)
+        {
+            if (IsSearchMode)
+            {
+                await LoadProductsAsync();
+            }
+            else
+            {
+                await LoadHomeAsync();
+            }
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!carouselInitialized && !loading && !IsSearchMode && carousel.Length > 1)
+        {
+            carouselInitialized = await JS.InvokeAsync<bool>("marketplaceUi.initCarousels");
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        search = SearchTerm;
+        if (IsSearchMode)
+        {
+            var home = await Api.GetHomeAsync();
+            carousel = home?.Carousel ?? [];
+            categories = home?.Categories ?? [];
+            products = await SearchProductsFromApiAsync();
+        }
+        else
+        {
+            await LoadHomeAsync();
+        }
+
+        loading = false;
+    }
+
+    private async Task LoadHomeAsync()
+    {
+        var home = await Api.GetHomeAsync();
+        carousel = home?.Carousel ?? [];
+        categories = home?.Categories ?? [];
+        products = home?.Offers ?? [];
+        totalProducts = products.Length;
+        carouselInitialized = false;
+    }
+
+    private async Task SearchAsync()
+    {
+        loading = true;
+        await LoadProductsAsync();
+        loading = false;
+    }
+
+    private async Task LoadProductsAsync()
+    {
+        products = await SearchProductsFromApiAsync();
+    }
+
+    private async Task<ProductSummary[]> SearchProductsFromApiAsync()
+    {
+        var result = await Api.SearchProductsAsync(search, CategoryId, CurrentPage);
+        totalProducts = result?.Total ?? 0;
+        pageSize = result?.PageSize ?? pageSize;
+        return result?.Items ?? [];
+    }
+
+    private string PageHref(int pageNumber)
+    {
+        var query = new List<string>();
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            query.Add($"s={Uri.EscapeDataString(search)}");
+        }
+
+        if (CategoryId is not null)
+        {
+            query.Add($"categoryId={CategoryId.Value}");
+        }
+
+        query.Add($"page={pageNumber}");
+        return "/?" + string.Join("&", query);
+    }
+
+}

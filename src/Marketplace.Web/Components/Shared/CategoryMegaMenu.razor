@@ -1,0 +1,32 @@
+<div class="legacy-dropdown mega-dropdown">
+    <button type="button" aria-haspopup="true">Categorias</button>
+    <div class="legacy-dropdown-menu mega-menu">
+        @if (Categories.Length == 0)
+        {
+            <span class="dropdown-item text-light">Carregando...</span>
+        }
+        else
+        {
+            @foreach (var category in Categories)
+            {
+                <section class="mega-menu-group">
+                    <a class="mega-menu-title" href="/?categoryId=@category.Id">@category.Title</a>
+                    @if (category.SubCategories?.Length > 0)
+                    {
+                        <div class="mega-menu-links">
+                            @foreach (var subCategory in category.SubCategories.Take(6))
+                            {
+                                <a href="/?categoryId=@category.Id">@subCategory.Title</a>
+                            }
+                        </div>
+                    }
+                </section>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public Category[] Categories { get; set; } = [];
+}

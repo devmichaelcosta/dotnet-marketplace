@@ -1,0 +1,23 @@
+@if (Products.Length > 0)
+{
+    <section class="product-rail">
+        <div class="product-rail-header">
+            <h2>@Title</h2>
+            <a href="/">Ver todos</a>
+        </div>
+        <div class="home-offers-grid product-rail-grid">
+            @foreach (var product in Products)
+            {
+                <ProductCard Product="product" />
+            }
+        </div>
+    </section>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = string.Empty;
+
+    [Parameter, EditorRequired]
+    public ProductSummary[] Products { get; set; } = [];
+}

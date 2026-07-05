@@ -1,0 +1,352 @@
+@page "/admin/catalog"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Components.Forms
+@inject MarketplaceApiClient Api
+@inject ClientState State
+
+<PageTitle>Catalogo administrativo</PageTitle>
+
+<div class="toolbar">
+    <div>
+        <h1>Catalogo</h1>
+        <p>Categorias, subcategorias e atributos da ficha tecnica.</p>
+    </div>
+    <div class="segment-control">
+        <button class="btn @(tab == AdminCatalogTab.Categories ? "btn-primary" : "btn-outline-secondary")" @onclick="() => tab = AdminCatalogTab.Categories">Categorias</button>
+        <button class="btn @(tab == AdminCatalogTab.SubCategories ? "btn-primary" : "btn-outline-secondary")" @onclick="() => tab = AdminCatalogTab.SubCategories">Subcategorias</button>
+        <button class="btn @(tab == AdminCatalogTab.Attributes ? "btn-primary" : "btn-outline-secondary")" @onclick="() => tab = AdminCatalogTab.Attributes">Atributos</button>
+    </div>
+</div>
+
+@if (!State.IsAuthenticated)
+{
+    <p>Faca login como admin para acessar esta area.</p>
+}
+else if (loading)
+{
+    <p>Carregando dados do catalogo...</p>
+}
+else
+{
+    @if (!string.IsNullOrWhiteSpace(message))
+    {
+        <p class="notice">@message</p>
+    }
+
+    @switch (tab)
+    {
+        case AdminCatalogTab.Categories:
+            <section class="admin-grid">
+                <EditForm Model="categoryForm" OnValidSubmit="SaveCategoryAsync" FormName="category-form" class="form-panel wide-form">
+                    <DataAnnotationsValidator />
+                    <h2>@(categoryForm.Id is null ? "Nova categoria" : "Editar categoria")</h2>
+                    <label>
+                        Titulo
+                        <InputText class="form-control" @bind-Value="categoryForm.Title" />
+                    </label>
+                    <label>
+                        Imagem
+                        <InputText class="form-control" @bind-Value="categoryForm.Image" />
+                    </label>
+                    <InputFile OnChange="UploadCategoryImageAsync" accept="image/*" />
+                    @if (!string.IsNullOrWhiteSpace(categoryForm.Image))
+                    {
+                        <img class="admin-preview" src="@Api.AssetUrl(categoryForm.Image)" alt="Preview da categoria" />
+                    }
+                    <div class="form-actions">
+                        <button class="btn btn-primary" type="submit">Salvar</button>
+                        <button class="btn btn-outline-secondary" type="button" @onclick="ResetCategoryForm">Limpar</button>
+                    </div>
+                </EditForm>
+
+                <div class="table-panel">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Categoria</th>
+                                <th>Imagem</th>
+                                <th>Subcategorias</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var category in categories)
+                            {
+                                <tr>
+                                    <td>@category.Title</td>
+                                    <td>@category.Image</td>
+                                    <td>@category.SubCategories.Length</td>
+                                    <td class="table-actions">
+                                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => EditCategory(category)">Editar</button>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteCategoryAsync(category.Id)">Excluir</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+            break;
+        case AdminCatalogTab.SubCategories:
+            <section class="admin-grid">
+                <EditForm Model="subCategoryForm" OnValidSubmit="SaveSubCategoryAsync" FormName="subcategory-form" class="form-panel wide-form">
+                    <DataAnnotationsValidator />
+                    <h2>@(subCategoryForm.Id is null ? "Nova subcategoria" : "Editar subcategoria")</h2>
+                    <label>
+                        Categoria
+                        <InputSelect class="form-control" @bind-Value="subCategoryForm.CategoryId">
+                            @foreach (var category in categories)
+                            {
+                                <option value="@category.Id">@category.Title</option>
+                            }
+                        </InputSelect>
+                    </label>
+                    <label>
+                        Titulo
+                        <InputText class="form-control" @bind-Value="subCategoryForm.Title" />
+                    </label>
+                    <div class="form-actions">
+                        <button class="btn btn-primary" type="submit">Salvar</button>
+                        <button class="btn btn-outline-secondary" type="button" @onclick="ResetSubCategoryForm">Limpar</button>
+                    </div>
+                </EditForm>
+
+                <div class="table-panel">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Subcategoria</th>
+                                <th>Categoria</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var subCategory in subCategories)
+                            {
+                                <tr>
+                                    <td>@subCategory.Title</td>
+                                    <td>@subCategory.Category</td>
+                                    <td class="table-actions">
+                                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => EditSubCategory(subCategory)">Editar</button>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteSubCategoryAsync(subCategory.Id)">Excluir</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+            break;
+        case AdminCatalogTab.Attributes:
+            <section class="admin-grid">
+                <EditForm Model="attributeForm" OnValidSubmit="SaveAttributeAsync" FormName="attribute-form" class="form-panel wide-form">
+                    <DataAnnotationsValidator />
+                    <h2>@(attributeForm.Id is null ? "Novo atributo" : "Editar atributo")</h2>
+                    <label>
+                        Nome
+                        <InputText class="form-control" @bind-Value="attributeForm.Name" />
+                    </label>
+                    <div class="form-actions">
+                        <button class="btn btn-primary" type="submit">Salvar</button>
+                        <button class="btn btn-outline-secondary" type="button" @onclick="ResetAttributeForm">Limpar</button>
+                    </div>
+                </EditForm>
+
+                <div class="table-panel">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Atributo</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var catalogAttribute in attributes)
+                            {
+                                <tr>
+                                    <td>@catalogAttribute.Name</td>
+                                    <td class="table-actions">
+                                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => EditAttribute(catalogAttribute)">Editar</button>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAttributeAsync(catalogAttribute.Id)">Excluir</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+            break;
+    }
+}
+
+@code {
+    private AdminCatalogTab tab = AdminCatalogTab.Categories;
+    private bool loading;
+    private string? message;
+    private AdminCategory[] categories = [];
+    private AdminSubCategory[] subCategories = [];
+    private AdminAttribute[] attributes = [];
+    private CategoryForm categoryForm = new();
+    private SubCategoryForm subCategoryForm = new();
+    private AttributeForm attributeForm = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (State.IsAuthenticated)
+        {
+            await LoadAsync();
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        categories = await Api.GetAdminCategoriesAsync();
+        subCategories = await Api.GetAdminSubCategoriesAsync();
+        attributes = await Api.GetAdminAttributesAsync();
+        EnsureSelectedCategory();
+        loading = false;
+    }
+
+    private async Task SaveCategoryAsync()
+    {
+        if (string.IsNullOrWhiteSpace(categoryForm.Title))
+        {
+            message = "Informe o titulo da categoria.";
+            return;
+        }
+
+        await Api.SaveCategoryAsync(new AdminCategoryRequest(categoryForm.Id, categoryForm.Title.Trim(), categoryForm.Image));
+        message = "Categoria salva.";
+        ResetCategoryForm();
+        await LoadAsync();
+    }
+
+    private async Task UploadCategoryImageAsync(InputFileChangeEventArgs args)
+    {
+        var result = await Api.UploadImageAsync("categories", args.File);
+        if (result is null)
+        {
+            message = "Nao foi possivel enviar a imagem.";
+            return;
+        }
+
+        categoryForm.Image = result.Url;
+        message = "Imagem enviada.";
+    }
+
+    private void EditCategory(AdminCategory category)
+    {
+        categoryForm = new CategoryForm { Id = category.Id, Title = category.Title, Image = category.Image };
+    }
+
+    private async Task DeleteCategoryAsync(int id)
+    {
+        await Api.DeleteCategoryAsync(id);
+        message = "Categoria excluida.";
+        await LoadAsync();
+    }
+
+    private void ResetCategoryForm()
+    {
+        categoryForm = new CategoryForm();
+    }
+
+    private async Task SaveSubCategoryAsync()
+    {
+        if (string.IsNullOrWhiteSpace(subCategoryForm.Title))
+        {
+            message = "Informe o titulo da subcategoria.";
+            return;
+        }
+
+        await Api.SaveSubCategoryAsync(new AdminSubCategoryRequest(subCategoryForm.Id, subCategoryForm.CategoryId, subCategoryForm.Title.Trim()));
+        message = "Subcategoria salva.";
+        ResetSubCategoryForm();
+        await LoadAsync();
+    }
+
+    private void EditSubCategory(AdminSubCategory subCategory)
+    {
+        subCategoryForm = new SubCategoryForm { Id = subCategory.Id, CategoryId = subCategory.CategoryId, Title = subCategory.Title };
+    }
+
+    private async Task DeleteSubCategoryAsync(int id)
+    {
+        await Api.DeleteSubCategoryAsync(id);
+        message = "Subcategoria excluida.";
+        await LoadAsync();
+    }
+
+    private void ResetSubCategoryForm()
+    {
+        subCategoryForm = new SubCategoryForm();
+        EnsureSelectedCategory();
+    }
+
+    private async Task SaveAttributeAsync()
+    {
+        if (string.IsNullOrWhiteSpace(attributeForm.Name))
+        {
+            message = "Informe o nome do atributo.";
+            return;
+        }
+
+        await Api.SaveAttributeAsync(new AdminAttributeRequest(attributeForm.Id, attributeForm.Name.Trim()));
+        message = "Atributo salvo.";
+        ResetAttributeForm();
+        await LoadAsync();
+    }
+
+    private void EditAttribute(AdminAttribute attribute)
+    {
+        attributeForm = new AttributeForm { Id = attribute.Id, Name = attribute.Name };
+    }
+
+    private async Task DeleteAttributeAsync(int id)
+    {
+        await Api.DeleteAttributeAsync(id);
+        message = "Atributo excluido.";
+        await LoadAsync();
+    }
+
+    private void ResetAttributeForm()
+    {
+        attributeForm = new AttributeForm();
+    }
+
+    private void EnsureSelectedCategory()
+    {
+        if (subCategoryForm.CategoryId == 0 && categories.Length > 0)
+        {
+            subCategoryForm.CategoryId = categories[0].Id;
+        }
+    }
+
+    private enum AdminCatalogTab
+    {
+        Categories,
+        SubCategories,
+        Attributes
+    }
+
+    private sealed class CategoryForm
+    {
+        public int? Id { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string? Image { get; set; }
+    }
+
+    private sealed class SubCategoryForm
+    {
+        public int? Id { get; set; }
+        public int CategoryId { get; set; }
+        public string Title { get; set; } = string.Empty;
+    }
+
+    private sealed class AttributeForm
+    {
+        public int? Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+}

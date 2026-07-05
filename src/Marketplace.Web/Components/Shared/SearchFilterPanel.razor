@@ -1,0 +1,27 @@
+<aside class="market-filter-panel" aria-label="Filtros rapidos">
+    <div class="filter-panel-header">
+        <span class="market-eyebrow">Filtros</span>
+        <strong>Refine sua busca</strong>
+    </div>
+    <div class="filter-group">
+        <span>Categorias</span>
+        @foreach (var category in Categories.Take(8))
+        {
+            <a class="filter-chip @(category.Id == SelectedCategoryId ? "active" : null)" href="/?categoryId=@category.Id">@category.Title</a>
+        }
+    </div>
+    <div class="filter-group">
+        <span>Atalhos</span>
+        <a class="filter-chip" href="/?s=oferta">Promocoes</a>
+        <a class="filter-chip" href="/?s=novo">Recentes</a>
+        <a class="filter-chip" href="/?s=mais%20vendidos">Mais vendidos</a>
+    </div>
+</aside>
+
+@code {
+    [Parameter, EditorRequired]
+    public Category[] Categories { get; set; } = [];
+
+    [Parameter]
+    public int? SelectedCategoryId { get; set; }
+}

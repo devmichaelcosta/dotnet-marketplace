@@ -1,0 +1,62 @@
+@page "/liked"
+@rendermode InteractiveServer
+@inject MarketplaceApiClient Api
+@inject ClientState State
+
+<PageTitle>Produtos curtidos</PageTitle>
+
+<nav class="nav-breadcrumb nav-breadcrumb-dark">
+    <a href="/">Produtos</a>
+    <span>Curtidos</span>
+</nav>
+
+@if (!State.IsAuthenticated)
+{
+    <div class="legacy-info-card">Faca login para ver seus produtos curtidos.</div>
+}
+else if (loading)
+{
+    <div class="legacy-info-card">Carregando produtos curtidos...</div>
+}
+else if (products.Length == 0)
+{
+    <div class="legacy-info-card">Nenhum produto curtido.</div>
+}
+else
+{
+    <div class="card bg-light legacy-count-card">
+        <div class="card-header"><span>@products.Length</span> produtos encontrados</div>
+    </div>
+    <section class="home-offers-grid legacy-search-grid">
+        @foreach (var product in products)
+        {
+            <ProductCard Product="product" ShowRemove="true" OnRemove="UnlikeAsync" />
+        }
+    </section>
+}
+
+@code {
+    private bool loading;
+    private ProductSummary[] products = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (State.IsAuthenticated)
+        {
+            await LoadAsync();
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        products = await Api.GetLikedProductsAsync();
+        loading = false;
+    }
+
+    private async Task UnlikeAsync(int id)
+    {
+        await Api.UnlikeProductAsync(id);
+        await LoadAsync();
+    }
+}

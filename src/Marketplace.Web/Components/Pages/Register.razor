@@ -1,0 +1,91 @@
+@page "/register"
+@rendermode InteractiveServer
+@inject MarketplaceApiClient Api
+
+<PageTitle>Cadastro</PageTitle>
+
+<section class="legacy-auth-shell legacy-auth-shell-wide">
+<EditForm Model="form" OnValidSubmit="RegisterAsync" FormName="register-form" class="legacy-auth-card legacy-register-card register-form">
+    <DataAnnotationsValidator />
+    <span class="market-eyebrow text-center">Nova conta</span>
+    <h1 class="h4 mb-3 text-center">Cadastre-se na LojaWhatever</h1>
+    <div class="social-login-row" aria-label="Cadastro social preparado para futura integracao">
+        <button class="btn btn-outline-secondary" type="button" disabled>Google</button>
+        <button class="btn btn-outline-secondary" type="button" disabled>Apple</button>
+    </div>
+    <div class="auth-divider"><span>ou preencha seus dados</span></div>
+    <label>
+        Nome
+        <InputText class="form-control" @bind-Value="form.Name" />
+    </label>
+    <label>
+        Sobrenome
+        <InputText class="form-control" @bind-Value="form.LastName" />
+    </label>
+    <label>
+        Login
+        <InputText class="form-control" @bind-Value="form.Login" />
+    </label>
+    <label>
+        CPF
+        <InputText class="form-control" @bind-Value="form.Cpf" />
+    </label>
+    <label>
+        Senha
+        <InputText class="form-control" type="password" @bind-Value="form.Password" />
+        <small class="muted">Use pelo menos 6 caracteres, com letra maiuscula, minuscula e numero.</small>
+    </label>
+    <label class="form-check-row">
+        <InputCheckbox class="form-check-input" @bind-Value="form.Seller" />
+        Quero vender no marketplace
+    </label>
+    <button class="btn btn-primary" type="submit">Criar conta</button>
+    @if (!string.IsNullOrWhiteSpace(message))
+    {
+        <p class="notice">@message</p>
+    }
+</EditForm>
+</section>
+
+@code {
+    private RegisterForm form = new();
+    private string? message;
+
+    private async Task RegisterAsync()
+    {
+        if (string.IsNullOrWhiteSpace(form.Name) || string.IsNullOrWhiteSpace(form.Login) || string.IsNullOrWhiteSpace(form.Password))
+        {
+            message = "Informe nome, login e senha.";
+            return;
+        }
+
+        if (!HasValidPassword(form.Password))
+        {
+            message = "Senha deve ter pelo menos 6 caracteres, uma letra maiuscula, uma minuscula e um numero.";
+            return;
+        }
+
+        var result = await Api.RegisterAsync(new RegisterRequest(form.Name.Trim(), form.LastName.Trim(), form.Login.Trim(), form.Password, form.Cpf), form.Seller);
+        message = result.Message;
+        if (result.Succeeded)
+        {
+            form = new RegisterForm();
+        }
+    }
+
+    private static bool HasValidPassword(string password) =>
+        password.Length >= 6
+        && password.Any(char.IsUpper)
+        && password.Any(char.IsLower)
+        && password.Any(char.IsDigit);
+
+    private sealed class RegisterForm
+    {
+        public string Name { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Login { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public string? Cpf { get; set; }
+        public bool Seller { get; set; }
+    }
+}

@@ -1,0 +1,1 @@
+O arquivo script-database-generate.sql pode ser usado para criar um banco de dados inicial.

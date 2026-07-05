@@ -1,0 +1,7 @@
+interface:
+  display_name: "Migrate Legacy"
+  short_description: "Modernize legacy apps into .NET"
+  default_prompt: "Use $migrate-legacy to analyze the legacy system and migrate it to modern .NET while preserving functional behavior."
+
+policy:
+  allow_implicit_invocation: true

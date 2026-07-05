@@ -1,0 +1,251 @@
+@page "/admin/sellers"
+@rendermode InteractiveServer
+@inject MarketplaceApiClient Api
+@inject ClientState State
+
+<PageTitle>Vendedores</PageTitle>
+
+<div class="toolbar">
+    <div>
+        <h1>Vendedores</h1>
+        <p>Dados comerciais e pessoais dos vendedores.</p>
+    </div>
+</div>
+
+@if (!State.IsAuthenticated)
+{
+    <p>Faca login como admin ou vendedor para acessar esta area.</p>
+}
+else if (loading)
+{
+    <p>Carregando vendedores...</p>
+}
+else
+{
+    @if (!string.IsNullOrWhiteSpace(message))
+    {
+        <p class="notice">@message</p>
+    }
+
+    <section class="admin-grid">
+        <EditForm Model="form" OnValidSubmit="SaveAsync" FormName="seller-form" class="form-panel wide-form">
+            <DataAnnotationsValidator />
+            <h2>@(form.Id is null ? "Novo vendedor" : "Editar vendedor")</h2>
+            <label>
+                Nome
+                <InputText class="form-control" @bind-Value="form.Name" />
+            </label>
+            <label>
+                Sobrenome
+                <InputText class="form-control" @bind-Value="form.LastName" />
+            </label>
+            @if (form.Id is null)
+            {
+                <div class="checkout-grid compact-grid">
+                    <label>
+                        Login
+                        <InputText class="form-control" @bind-Value="form.Login" />
+                    </label>
+                    <label>
+                        Senha
+                        <InputText class="form-control" type="password" @bind-Value="form.Password" />
+                    </label>
+                </div>
+            }
+            <div class="checkout-grid compact-grid">
+                <label>
+                    CPF
+                    <InputText class="form-control" @bind-Value="form.Cpf" />
+                </label>
+                <label>
+                    Idade
+                    <InputNumber class="form-control" @bind-Value="form.Age" />
+                </label>
+                <label>
+                    Data de nascimento
+                    <InputText class="form-control" placeholder="yyyy-MM-dd" @bind-Value="form.DateOfBirthText" />
+                </label>
+                <label>
+                    Email comercial
+                    <InputText class="form-control" @bind-Value="form.Email" />
+                </label>
+            </div>
+            <label>
+                Website
+                <InputText class="form-control" @bind-Value="form.Website" />
+            </label>
+            <label>
+                Empresa
+                <InputText class="form-control" @bind-Value="form.Company" />
+            </label>
+            <label>
+                Nome fantasia
+                <InputText class="form-control" @bind-Value="form.FantasyName" />
+            </label>
+            <label>
+                CNPJ
+                <InputText class="form-control" @bind-Value="form.Cnpj" />
+            </label>
+            <label>
+                Ramo de atividade
+                <InputText class="form-control" @bind-Value="form.BranchOfActivity" />
+            </label>
+            <div class="form-actions">
+                <button class="btn btn-primary" type="submit">Salvar</button>
+                <button class="btn btn-outline-secondary" type="button" @onclick="ResetForm">Limpar</button>
+            </div>
+        </EditForm>
+
+        <div class="table-panel">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Vendedor</th>
+                        <th>Empresa</th>
+                        <th>Email</th>
+                        <th>CNPJ</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var seller in sellers)
+                    {
+                        <tr>
+                            <td>@seller.Name @seller.LastName</td>
+                            <td>@(seller.FantasyName ?? seller.Company)</td>
+                            <td>@seller.Email</td>
+                            <td>@seller.Cnpj</td>
+                            <td class="table-actions">
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => Edit(seller)">Editar</button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(seller.Id)">Excluir</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+}
+
+@code {
+    private bool loading;
+    private string? message;
+    private AdminSeller[] sellers = [];
+    private SellerForm form = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (State.IsAuthenticated)
+        {
+            await LoadAsync();
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        sellers = await Api.GetAdminSellersAsync();
+        loading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (form.Id is null)
+        {
+            await Api.CreateSellerAsync(form.ToCreateRequest());
+            message = "Vendedor criado.";
+        }
+        else
+        {
+            await Api.SaveSellerAsync(form.ToRequest());
+            message = "Vendedor salvo.";
+        }
+
+        ResetForm();
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync(Guid id)
+    {
+        await Api.DeleteSellerAsync(id);
+        message = "Vendedor removido.";
+        ResetForm();
+        await LoadAsync();
+    }
+
+    private void Edit(AdminSeller seller)
+    {
+        form = SellerForm.From(seller);
+    }
+
+    private void ResetForm()
+    {
+        form = new SellerForm();
+    }
+
+    private sealed class SellerForm
+    {
+        public Guid? Id { get; set; }
+        public string Login { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string? Cpf { get; set; }
+        public int? Age { get; set; }
+        public string? Email { get; set; }
+        public string? DateOfBirthText { get; set; }
+        public string? Website { get; set; }
+        public string? Company { get; set; }
+        public string? Cnpj { get; set; }
+        public string? BranchOfActivity { get; set; }
+        public string? FantasyName { get; set; }
+
+        public static SellerForm From(AdminSeller seller) =>
+            new()
+            {
+                Id = seller.Id,
+                Name = seller.Name,
+                LastName = seller.LastName,
+                Cpf = seller.Cpf,
+                Age = seller.Age,
+                Email = seller.Email,
+                DateOfBirthText = seller.DateOfBirth?.ToString("yyyy-MM-dd"),
+                Website = seller.Website,
+                Company = seller.Company,
+                Cnpj = seller.Cnpj,
+                BranchOfActivity = seller.BranchOfActivity,
+                FantasyName = seller.FantasyName
+            };
+
+        public AdminSellerRequest ToRequest() =>
+            new(
+                Id!.Value,
+                Name.Trim(),
+                LastName.Trim(),
+                Cpf,
+                Age,
+                Email,
+                DateOnly.TryParse(DateOfBirthText, out var dateOfBirth) ? dateOfBirth : null,
+                Website,
+                Company,
+                Cnpj,
+                BranchOfActivity,
+                FantasyName);
+
+        public AdminSellerCreateRequest ToCreateRequest() =>
+            new(
+                Name.Trim(),
+                LastName.Trim(),
+                Login.Trim(),
+                Password,
+                Cpf,
+                Age,
+                Email,
+                DateOnly.TryParse(DateOfBirthText, out var dateOfBirth) ? dateOfBirth : null,
+                Website,
+                Company,
+                Cnpj,
+                BranchOfActivity,
+                FantasyName);
+    }
+}
