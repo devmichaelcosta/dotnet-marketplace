@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Marketplace.Api.Domain;
+using Marketplace.Api.Features.Cart;
 using Marketplace.Api.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
@@ -29,27 +30,62 @@ public static class EndpointExtensions
             anonymousKey = Guid.NewGuid().ToString("N");
         }
 
-        var cart = await db.Carts
+        var anonymousCart = await db.Carts
             .Include(item => item.Items)
             .ThenInclude(item => item.Product)
-            .FirstOrDefaultAsync(item => item.AnonymousKey == anonymousKey || (userId != null && item.UserId == userId), cancellationToken);
+            .FirstOrDefaultAsync(item => item.AnonymousKey == anonymousKey, cancellationToken);
 
-        if (cart is null)
+        var userCart = userId is null
+            ? null
+            : await db.Carts
+                .Include(item => item.Items)
+                .ThenInclude(item => item.Product)
+                .FirstOrDefaultAsync(item => item.UserId == userId, cancellationToken);
+
+        if (anonymousCart is null && userCart is null)
         {
-            cart = new Domain.Cart { AnonymousKey = anonymousKey, UserId = userId };
+            var cart = new Domain.Cart { AnonymousKey = anonymousKey, UserId = userId };
             db.Carts.Add(cart);
             await db.SaveChangesAsync(cancellationToken);
             return cart;
         }
 
-        if (userId is not null && cart.UserId is null)
+        if (userCart is null)
         {
-            cart.UserId = userId;
-            cart.UpdatedAt = DateTimeOffset.UtcNow;
-            await db.SaveChangesAsync(cancellationToken);
+            if (anonymousCart is not null && userId is not null)
+            {
+                anonymousCart.UserId = userId;
+                anonymousCart.UpdatedAt = DateTimeOffset.UtcNow;
+                await db.SaveChangesAsync(cancellationToken);
+            }
+
+            return anonymousCart!;
         }
 
-        return cart;
+        if (anonymousCart is null || ReferenceEquals(anonymousCart, userCart))
+        {
+            if (userCart.UserId is null && userId is not null)
+            {
+                userCart.UserId = userId;
+                userCart.UpdatedAt = DateTimeOffset.UtcNow;
+                await db.SaveChangesAsync(cancellationToken);
+            }
+
+            return userCart;
+        }
+
+        var stockByProductId = userCart.Items
+            .Concat(anonymousCart.Items)
+            .GroupBy(item => item.ProductId)
+            .ToDictionary(group => group.Key, group => group.First().Product?.Stock ?? 0);
+
+        CartPolicy.MergeItems(userCart, anonymousCart, stockByProductId, anonymousKey);
+        userCart.UserId = userId;
+        userCart.UpdatedAt = DateTimeOffset.UtcNow;
+        db.Carts.Remove(anonymousCart);
+        await db.SaveChangesAsync(cancellationToken);
+
+        return userCart;
     }
 
     public static object ToResponse(this Domain.Cart cart)

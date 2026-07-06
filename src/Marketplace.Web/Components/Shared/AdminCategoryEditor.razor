@@ -138,8 +138,15 @@ else
             return;
         }
 
-        await Api.SaveCategoryAsync(new AdminCategoryRequest(form.Id, form.Title.Trim(), form.Image));
-        Navigation.NavigateTo("/admin/catalog?saved=category");
+        var result = await Api.SaveCategoryAsync(new AdminCategoryRequest(form.Id, form.Title.Trim(), form.Image));
+        if (result.Succeeded)
+        {
+            Navigation.NavigateTo("/admin/catalog?saved=category");
+            return;
+        }
+
+        message = result.Message;
+        successMessage = false;
     }
 
     private sealed class CategoryForm

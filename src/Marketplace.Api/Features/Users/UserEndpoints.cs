@@ -41,6 +41,12 @@ public static class UserEndpoints
                 return Results.Unauthorized();
             }
 
+            var validation = ProfilePolicy.Validate(request);
+            if (validation is not null)
+            {
+                return validation;
+            }
+
             var user = await db.Users
                 .Include(item => item.Addresses)
                 .FirstOrDefaultAsync(item => item.Id == userId, cancellationToken);
@@ -52,7 +58,7 @@ public static class UserEndpoints
 
             user.Name = request.Name.Trim();
             user.LastName = request.LastName.Trim();
-            user.Cpf = request.Cpf;
+            user.Cpf = ProfilePolicy.NormalizeDocument(request.Cpf);
 
             db.Addresses.RemoveRange(user.Addresses);
             user.Addresses = request.Addresses.Select(address => new Address
@@ -179,6 +185,44 @@ public static class UserEndpoints
         }
 
         return errors.Count == 0 ? null : Results.ValidationProblem(errors);
+    }
+
+}
+
+public static class ProfilePolicy
+{
+    public static IResult? Validate(ProfileRequest request)
+    {
+        var errors = new Dictionary<string, string[]>();
+
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            errors["name"] = ["Nome obrigatorio."];
+        }
+
+        if (string.IsNullOrWhiteSpace(request.LastName))
+        {
+            errors["lastName"] = ["Sobrenome obrigatorio."];
+        }
+
+        var cpf = NormalizeDocument(request.Cpf);
+        if (!string.IsNullOrWhiteSpace(cpf) && cpf.Length != 11)
+        {
+            errors["cpf"] = ["CPF deve conter 11 digitos."];
+        }
+
+        return errors.Count == 0 ? null : Results.ValidationProblem(errors);
+    }
+
+    public static string? NormalizeDocument(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var digits = new string(value.Where(char.IsDigit).ToArray());
+        return string.IsNullOrWhiteSpace(digits) ? null : digits;
     }
 }
 

@@ -192,10 +192,13 @@ else
             return;
         }
 
-        await Api.SaveUserAsync(new AdminUserRequest(form.Id, form.Name.Trim(), form.LastName.Trim(), form.Login.Trim(), form.Password, form.Cpf, form.Role));
-        message = "Usuario salvo.";
-        ResetForm();
-        await LoadAsync();
+        var result = await Api.SaveUserAsync(new AdminUserRequest(form.Id, form.Name.Trim(), form.LastName.Trim(), form.Login.Trim(), form.Password, form.Cpf, form.Role));
+        message = result.Message;
+        if (result.Succeeded)
+        {
+            ResetForm();
+            await LoadAsync();
+        }
     }
 
     private void Edit(AdminUser user)
@@ -248,9 +251,12 @@ else
 
     private async Task DeleteAsync(Guid id)
     {
-        await Api.DeleteUserAsync(id);
-        message = "Usuario excluido.";
-        await LoadAsync();
+        var result = await Api.DeleteUserAsync(id);
+        message = result.Message;
+        if (result.Succeeded)
+        {
+            await LoadAsync();
+        }
     }
 
     private void ResetForm()

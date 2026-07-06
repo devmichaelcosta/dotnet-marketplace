@@ -178,9 +178,12 @@ else
 
     private async Task DeleteAsync(int id)
     {
-        await Api.DeleteProductAsync(id);
-        message = "Produto excluido.";
-        await LoadAsync();
+        var result = await Api.DeleteProductAsync(id);
+        message = result.Message;
+        if (result.Succeeded)
+        {
+            await LoadAsync();
+        }
     }
 
     private void CreateProduct() => Navigation.NavigateTo("/admin/products/create");

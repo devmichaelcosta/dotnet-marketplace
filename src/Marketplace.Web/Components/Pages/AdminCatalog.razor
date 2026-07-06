@@ -269,10 +269,13 @@
 
     private async Task DeleteCategoryAsync(int id)
     {
-        await Api.DeleteCategoryAsync(id);
-        message = "Categoria excluida.";
-        successMessage = true;
-        await LoadAsync();
+        var result = await Api.DeleteCategoryAsync(id);
+        message = result.Message;
+        successMessage = result.Succeeded;
+        if (result.Succeeded)
+        {
+            await LoadAsync();
+        }
     }
 
     private void CreateSubCategory() => Navigation.NavigateTo("/admin/catalog/subcategories/create");
@@ -280,9 +283,13 @@
 
     private async Task DeleteSubCategoryAsync(int id)
     {
-        await Api.DeleteSubCategoryAsync(id);
-        message = "Subcategoria excluida.";
-        await LoadAsync();
+        var result = await Api.DeleteSubCategoryAsync(id);
+        message = result.Message;
+        successMessage = result.Succeeded;
+        if (result.Succeeded)
+        {
+            await LoadAsync();
+        }
     }
 
     private Task SearchSubCategoriesAsync() => Task.CompletedTask;
@@ -304,9 +311,13 @@
 
     private async Task DeleteAttributeAsync(int id)
     {
-        await Api.DeleteAttributeAsync(id);
-        message = "Atributo excluido.";
-        await LoadAsync();
+        var result = await Api.DeleteAttributeAsync(id);
+        message = result.Message;
+        successMessage = result.Succeeded;
+        if (result.Succeeded)
+        {
+            await LoadAsync();
+        }
     }
 
     private Task SearchAttributesAsync() => Task.CompletedTask;

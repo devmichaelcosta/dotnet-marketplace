@@ -50,9 +50,10 @@ public static class AdminEndpoints
 
         group.MapPost("/", async (UserRequest request, UserManager<ApplicationUser> userManager) =>
         {
-            if (string.IsNullOrWhiteSpace(request.Password))
+            var validationErrors = AdminValidationPolicy.ValidateUser(request, passwordRequired: true);
+            if (validationErrors.Count > 0)
             {
-                return Results.ValidationProblem(new Dictionary<string, string[]> { ["password"] = ["Senha obrigatoria."] });
+                return Results.ValidationProblem(validationErrors);
             }
 
             var user = new ApplicationUser
@@ -61,11 +62,11 @@ public static class AdminEndpoints
                 Email = $"{request.Login.Trim()}@marketplace.local",
                 Name = request.Name.Trim(),
                 LastName = request.LastName.Trim(),
-                Cpf = request.Cpf,
+                Cpf = AdminValidationPolicy.NormalizeDocument(request.Cpf),
                 EmailConfirmed = true
             };
 
-            var result = await userManager.CreateAsync(user, request.Password);
+            var result = await userManager.CreateAsync(user, request.Password!);
             if (!result.Succeeded)
             {
                 return Results.ValidationProblem(result.Errors.ToDictionary(error => error.Code, error => new[] { error.Description }));
@@ -77,6 +78,12 @@ public static class AdminEndpoints
 
         group.MapPut("/{id:guid}", async (Guid id, UserRequest request, UserManager<ApplicationUser> userManager) =>
         {
+            var validationErrors = AdminValidationPolicy.ValidateUser(request, passwordRequired: false);
+            if (validationErrors.Count > 0)
+            {
+                return Results.ValidationProblem(validationErrors);
+            }
+
             var user = await userManager.FindByIdAsync(id.ToString());
             if (user is null)
             {
@@ -87,7 +94,7 @@ public static class AdminEndpoints
             user.Email = $"{request.Login.Trim()}@marketplace.local";
             user.Name = request.Name.Trim();
             user.LastName = request.LastName.Trim();
-            user.Cpf = request.Cpf;
+            user.Cpf = AdminValidationPolicy.NormalizeDocument(request.Cpf);
 
             var updateResult = await userManager.UpdateAsync(user);
             if (!updateResult.Succeeded)
@@ -158,9 +165,10 @@ public static class AdminEndpoints
 
         group.MapPost("/", async (CategoryRequest request, MarketplaceDbContext db, CancellationToken cancellationToken) =>
         {
-            if (string.IsNullOrWhiteSpace(request.Title))
+            var validationErrors = AdminValidationPolicy.ValidateCategory(request);
+            if (validationErrors.Count > 0)
             {
-                return Results.ValidationProblem(new Dictionary<string, string[]> { ["title"] = ["Titulo obrigatorio."] });
+                return Results.ValidationProblem(validationErrors);
             }
 
             var category = new Category { Title = request.Title.Trim(), Image = request.Image };
@@ -171,6 +179,12 @@ public static class AdminEndpoints
 
         group.MapPut("/{id:int}", async (int id, CategoryRequest request, MarketplaceDbContext db, CancellationToken cancellationToken) =>
         {
+            var validationErrors = AdminValidationPolicy.ValidateCategory(request);
+            if (validationErrors.Count > 0)
+            {
+                return Results.ValidationProblem(validationErrors);
+            }
+
             var category = await db.Categories.FindAsync([id], cancellationToken);
             if (category is null)
             {
@@ -220,6 +234,12 @@ public static class AdminEndpoints
 
         group.MapPost("/", async (SubCategoryRequest request, MarketplaceDbContext db, CancellationToken cancellationToken) =>
         {
+            var validationErrors = AdminValidationPolicy.ValidateSubCategory(request);
+            if (validationErrors.Count > 0)
+            {
+                return Results.ValidationProblem(validationErrors);
+            }
+
             var subCategory = new SubCategory { CategoryId = request.CategoryId, Title = request.Title.Trim() };
             db.SubCategories.Add(subCategory);
             await db.SaveChangesAsync(cancellationToken);
@@ -228,6 +248,12 @@ public static class AdminEndpoints
 
         group.MapPut("/{id:int}", async (int id, SubCategoryRequest request, MarketplaceDbContext db, CancellationToken cancellationToken) =>
         {
+            var validationErrors = AdminValidationPolicy.ValidateSubCategory(request);
+            if (validationErrors.Count > 0)
+            {
+                return Results.ValidationProblem(validationErrors);
+            }
+
             var subCategory = await db.SubCategories.FindAsync([id], cancellationToken);
             if (subCategory is null)
             {
@@ -268,6 +294,12 @@ public static class AdminEndpoints
 
         group.MapPost("/", async (AttributeRequest request, MarketplaceDbContext db, CancellationToken cancellationToken) =>
         {
+            var validationErrors = AdminValidationPolicy.ValidateAttribute(request);
+            if (validationErrors.Count > 0)
+            {
+                return Results.ValidationProblem(validationErrors);
+            }
+
             var attribute = new AttributeDefinition { Name = request.Name.Trim() };
             db.Attributes.Add(attribute);
             await db.SaveChangesAsync(cancellationToken);
@@ -276,6 +308,12 @@ public static class AdminEndpoints
 
         group.MapPut("/{id:int}", async (int id, AttributeRequest request, MarketplaceDbContext db, CancellationToken cancellationToken) =>
         {
+            var validationErrors = AdminValidationPolicy.ValidateAttribute(request);
+            if (validationErrors.Count > 0)
+            {
+                return Results.ValidationProblem(validationErrors);
+            }
+
             var attribute = await db.Attributes.FindAsync([id], cancellationToken);
             if (attribute is null)
             {
@@ -320,9 +358,10 @@ public static class AdminEndpoints
 
         group.MapPost("/", async (SellerCreateRequest request, UserManager<ApplicationUser> userManager, MarketplaceDbContext db, CancellationToken cancellationToken) =>
         {
-            if (string.IsNullOrWhiteSpace(request.Login) || string.IsNullOrWhiteSpace(request.Password))
+            var validationErrors = AdminValidationPolicy.ValidateSeller(request, passwordRequired: true);
+            if (validationErrors.Count > 0)
             {
-                return Results.ValidationProblem(new Dictionary<string, string[]> { ["login"] = ["Login e senha sao obrigatorios."] });
+                return Results.ValidationProblem(validationErrors);
             }
 
             await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
@@ -332,11 +371,11 @@ public static class AdminEndpoints
                 Email = $"{request.Login.Trim()}@marketplace.local",
                 Name = request.Name.Trim(),
                 LastName = request.LastName.Trim(),
-                Cpf = request.Cpf,
+                Cpf = AdminValidationPolicy.NormalizeDocument(request.Cpf),
                 EmailConfirmed = true
             };
 
-            var result = await userManager.CreateAsync(user, request.Password);
+            var result = await userManager.CreateAsync(user, request.Password!);
             if (!result.Succeeded)
             {
                 return Results.ValidationProblem(result.Errors.ToDictionary(error => error.Code, error => new[] { error.Description }));
@@ -365,6 +404,12 @@ public static class AdminEndpoints
 
         group.MapPut("/{id:guid}", async (Guid id, SellerRequest request, MarketplaceDbContext db, CancellationToken cancellationToken) =>
         {
+            var validationErrors = AdminValidationPolicy.ValidateSeller(request, passwordRequired: false);
+            if (validationErrors.Count > 0)
+            {
+                return Results.ValidationProblem(validationErrors);
+            }
+
             var seller = await db.Sellers.Include(item => item.User).FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
             if (seller is null)
             {
@@ -383,7 +428,7 @@ public static class AdminEndpoints
             {
                 seller.User.Name = request.Name;
                 seller.User.LastName = request.LastName;
-                seller.User.Cpf = request.Cpf;
+                seller.User.Cpf = AdminValidationPolicy.NormalizeDocument(request.Cpf);
             }
 
             await db.SaveChangesAsync(cancellationToken);
@@ -531,6 +576,104 @@ public static class UploadPolicy
             "carousel" or "destaques" => "carousel",
             _ => "products"
         };
+}
+
+public static class AdminValidationPolicy
+{
+    public static Dictionary<string, string[]> ValidateUser(UserRequest request, bool passwordRequired)
+    {
+        var errors = new Dictionary<string, string[]>();
+        AddRequired(errors, "name", request.Name, "Nome obrigatorio.");
+        AddRequired(errors, "lastName", request.LastName, "Sobrenome obrigatorio.");
+        AddRequired(errors, "login", request.Login, "Login obrigatorio.");
+
+        if (passwordRequired)
+        {
+            AddRequired(errors, "password", request.Password, "Senha obrigatoria.");
+        }
+
+        ValidateDocument(errors, request.Cpf, "cpf");
+        return errors;
+    }
+
+    public static Dictionary<string, string[]> ValidateSeller(SellerCreateRequest request, bool passwordRequired)
+    {
+        var errors = new Dictionary<string, string[]>();
+        AddRequired(errors, "name", request.Name, "Nome obrigatorio.");
+        AddRequired(errors, "lastName", request.LastName, "Sobrenome obrigatorio.");
+        AddRequired(errors, "login", request.Login, "Login obrigatorio.");
+
+        if (passwordRequired)
+        {
+            AddRequired(errors, "password", request.Password, "Senha obrigatoria.");
+        }
+
+        ValidateDocument(errors, request.Cpf, "cpf");
+        return errors;
+    }
+
+    public static Dictionary<string, string[]> ValidateSeller(SellerRequest request, bool passwordRequired)
+    {
+        var errors = new Dictionary<string, string[]>();
+        AddRequired(errors, "name", request.Name, "Nome obrigatorio.");
+        AddRequired(errors, "lastName", request.LastName, "Sobrenome obrigatorio.");
+        ValidateDocument(errors, request.Cpf, "cpf");
+        return errors;
+    }
+
+    public static Dictionary<string, string[]> ValidateCategory(CategoryRequest request)
+    {
+        var errors = new Dictionary<string, string[]>();
+        AddRequired(errors, "title", request.Title, "Titulo obrigatorio.");
+        return errors;
+    }
+
+    public static Dictionary<string, string[]> ValidateSubCategory(SubCategoryRequest request)
+    {
+        var errors = new Dictionary<string, string[]>();
+        AddRequired(errors, "title", request.Title, "Titulo obrigatorio.");
+        if (request.CategoryId <= 0)
+        {
+            errors["categoryId"] = ["Categoria obrigatoria."];
+        }
+
+        return errors;
+    }
+
+    public static Dictionary<string, string[]> ValidateAttribute(AttributeRequest request)
+    {
+        var errors = new Dictionary<string, string[]>();
+        AddRequired(errors, "name", request.Name, "Nome obrigatorio.");
+        return errors;
+    }
+
+    public static string? NormalizeDocument(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var digits = new string(value.Where(char.IsDigit).ToArray());
+        return string.IsNullOrWhiteSpace(digits) ? null : digits;
+    }
+
+    private static void AddRequired(Dictionary<string, string[]> errors, string key, string? value, string message)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            errors[key] = [message];
+        }
+    }
+
+    private static void ValidateDocument(Dictionary<string, string[]> errors, string? value, string key)
+    {
+        var normalized = NormalizeDocument(value);
+        if (!string.IsNullOrWhiteSpace(normalized) && normalized.Length != 11)
+        {
+            errors[key] = ["CPF deve conter 11 digitos."];
+        }
+    }
 }
 
 public sealed record UserResponse(Guid Id, string Login, string Name, string LastName, string? Cpf, string Role)

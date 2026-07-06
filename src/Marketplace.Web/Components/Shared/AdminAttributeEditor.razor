@@ -105,8 +105,15 @@ else
             return;
         }
 
-        await Api.SaveAttributeAsync(new AdminAttributeRequest(form.Id, form.Name.Trim()));
-        Navigation.NavigateTo("/admin/catalog?saved=attribute");
+        var result = await Api.SaveAttributeAsync(new AdminAttributeRequest(form.Id, form.Name.Trim()));
+        if (result.Succeeded)
+        {
+            Navigation.NavigateTo("/admin/catalog?saved=attribute");
+            return;
+        }
+
+        message = result.Message;
+        successMessage = false;
     }
 
     private sealed class AttributeForm

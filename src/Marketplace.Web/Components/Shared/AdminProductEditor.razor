@@ -384,28 +384,28 @@ else
                 .Select(item => new ProductAttributeValueRequest(item.AttributeId!.Value, item.Value.Trim()))
                 .ToArray());
 
-        try
+        var result = await Api.SaveProductAsync(request);
+        if (!result.Succeeded)
         {
-            var savedId = await Api.SaveProductAsync(request);
-            var productId = form.Id ?? savedId;
-            if (productId is null)
-            {
-                message = "Nao foi possivel salvar o produto.";
-                return;
-            }
-
-            if (form.Id is null)
-            {
-                Navigation.NavigateTo($"/admin/products/{productId.Value}/edit");
-                return;
-            }
-
-            Navigation.NavigateTo("/admin/products?saved=edited");
+            message = result.Message;
+            return;
         }
-        catch (HttpRequestException)
+
+        var productId = form.Id ?? result.Id;
+        if (productId is null)
         {
-            message = "Nao foi possivel salvar o produto. Verifique sua autenticacao.";
+            message = "Nao foi possivel salvar o produto.";
+            return;
         }
+
+        if (form.Id is null)
+        {
+            Navigation.NavigateTo($"/admin/products/{productId.Value}/edit");
+            return;
+        }
+
+        message = result.Message;
+        Navigation.NavigateTo("/admin/products?saved=edited");
     }
 
     private void OpenAttributeModal()
@@ -485,7 +485,12 @@ else
     {
         if (form.Id is not null)
         {
-            await Api.DeleteProductImageAsync(form.Id.Value, image);
+            var result = await Api.DeleteProductImageAsync(form.Id.Value, image);
+            if (!result.Succeeded)
+            {
+                message = result.Message;
+                return;
+            }
         }
 
         form.Images.Remove(image);

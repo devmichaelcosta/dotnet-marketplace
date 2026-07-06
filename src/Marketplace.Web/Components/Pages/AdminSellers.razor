@@ -190,13 +190,21 @@ else
     {
         if (form.Id is null)
         {
-            await Api.CreateSellerAsync(form.ToCreateRequest());
-            message = "Vendedor criado.";
+            var result = await Api.CreateSellerAsync(form.ToCreateRequest());
+            message = result.Message;
+            if (!result.Succeeded)
+            {
+                return;
+            }
         }
         else
         {
-            await Api.SaveSellerAsync(form.ToRequest());
-            message = "Vendedor salvo.";
+            var result = await Api.SaveSellerAsync(form.ToRequest());
+            message = result.Message;
+            if (!result.Succeeded)
+            {
+                return;
+            }
         }
 
         ResetForm();
@@ -205,10 +213,13 @@ else
 
     private async Task DeleteAsync(Guid id)
     {
-        await Api.DeleteSellerAsync(id);
-        message = "Vendedor removido.";
-        ResetForm();
-        await LoadAsync();
+        var result = await Api.DeleteSellerAsync(id);
+        message = result.Message;
+        if (result.Succeeded)
+        {
+            ResetForm();
+            await LoadAsync();
+        }
     }
 
     private void Edit(AdminSeller seller)

@@ -284,15 +284,11 @@
 
     private async Task SaveAsync()
     {
-        try
+        var result = await Api.SaveSimilarProductsAsync(Id, selectedIds.Distinct().ToArray());
+        message = result.Message;
+        if (result.Succeeded)
         {
-            await Api.SaveSimilarProductsAsync(Id, selectedIds.Distinct().ToArray());
-            message = "Relacionamentos salvos.";
             await LoadAsync();
-        }
-        catch (HttpRequestException)
-        {
-            message = "Nao foi possivel salvar os produtos similares.";
         }
     }
 }

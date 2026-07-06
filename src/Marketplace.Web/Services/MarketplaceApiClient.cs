@@ -215,12 +215,17 @@ public sealed class MarketplaceApiClient(HttpClient http, ClientState state)
         return await response.Content.ReadFromJsonAsync<UserProfile>(cancellationToken);
     }
 
-    public async Task SaveProfileAsync(ProfileRequest profile, CancellationToken cancellationToken = default)
+    public async Task<RegisterResult> SaveProfileAsync(ProfileRequest profile, CancellationToken cancellationToken = default)
     {
         using var request = NewRequest(HttpMethod.Put, "api/users/me");
         request.Content = JsonContent.Create(profile);
         using var response = await http.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        if (response.IsSuccessStatusCode)
+        {
+            return new RegisterResult(true, "Perfil salvo.");
+        }
+
+        return new RegisterResult(false, await ReadProblemMessageAsync(response, cancellationToken));
     }
 
     public async Task DeleteAddressAsync(Guid id, CancellationToken cancellationToken = default)
@@ -270,7 +275,7 @@ public sealed class MarketplaceApiClient(HttpClient http, ClientState state)
         return await response.Content.ReadFromJsonAsync<AdminProductDetails>(cancellationToken);
     }
 
-    public async Task<int?> SaveProductAsync(AdminProductRequest product, CancellationToken cancellationToken = default)
+    public async Task<SaveProductResult> SaveProductAsync(AdminProductRequest product, CancellationToken cancellationToken = default)
     {
         var method = product.Id is null ? HttpMethod.Post : HttpMethod.Put;
         var url = product.Id is null ? "api/admin/products" : $"api/admin/products/{product.Id}";
@@ -289,23 +294,31 @@ public sealed class MarketplaceApiClient(HttpClient http, ClientState state)
             product.Attributes
         });
         using var response = await http.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            return new SaveProductResult(false, await ReadProblemMessageAsync(response, cancellationToken), null);
+        }
+
         var result = await response.Content.ReadFromJsonAsync<SaveProductResponse>(cancellationToken);
-        return result?.Id;
+        return new SaveProductResult(true, "Produto salvo.", result?.Id);
     }
 
-    public async Task DeleteProductAsync(int id, CancellationToken cancellationToken = default)
+    public async Task<RegisterResult> DeleteProductAsync(int id, CancellationToken cancellationToken = default)
     {
         using var request = NewRequest(HttpMethod.Delete, $"api/admin/products/{id}");
         using var response = await http.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        return response.IsSuccessStatusCode
+            ? new RegisterResult(true, "Produto excluido.")
+            : new RegisterResult(false, await ReadProblemMessageAsync(response, cancellationToken));
     }
 
-    public async Task DeleteProductImageAsync(int productId, string fileName, CancellationToken cancellationToken = default)
+    public async Task<RegisterResult> DeleteProductImageAsync(int productId, string fileName, CancellationToken cancellationToken = default)
     {
         using var request = NewRequest(HttpMethod.Delete, $"api/admin/products/{productId}/images/{Uri.EscapeDataString(fileName)}");
         using var response = await http.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        return response.IsSuccessStatusCode
+            ? new RegisterResult(true, "Imagem removida.")
+            : new RegisterResult(false, await ReadProblemMessageAsync(response, cancellationToken));
     }
 
     public async Task<ProductImportCreated?> UploadProductImportAsync(IBrowserFile file, CancellationToken cancellationToken = default)
@@ -452,12 +465,14 @@ public sealed class MarketplaceApiClient(HttpClient http, ClientState state)
             fileName);
     }
 
-    public async Task SaveSimilarProductsAsync(int id, int[] productIds, CancellationToken cancellationToken = default)
+    public async Task<RegisterResult> SaveSimilarProductsAsync(int id, int[] productIds, CancellationToken cancellationToken = default)
     {
         using var request = NewRequest(HttpMethod.Post, $"api/admin/products/{id}/similar-products");
         request.Content = JsonContent.Create(new { ProductIds = productIds });
         using var response = await http.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        return response.IsSuccessStatusCode
+            ? new RegisterResult(true, "Produtos similares salvos.")
+            : new RegisterResult(false, await ReadProblemMessageAsync(response, cancellationToken));
     }
 
     public async Task<AdminCategory[]> GetAdminCategoriesAsync(CancellationToken cancellationToken = default)
@@ -472,21 +487,25 @@ public sealed class MarketplaceApiClient(HttpClient http, ClientState state)
         return await response.Content.ReadFromJsonAsync<AdminCategory[]>(cancellationToken) ?? [];
     }
 
-    public async Task SaveCategoryAsync(AdminCategoryRequest category, CancellationToken cancellationToken = default)
+    public async Task<RegisterResult> SaveCategoryAsync(AdminCategoryRequest category, CancellationToken cancellationToken = default)
     {
         var method = category.Id is null ? HttpMethod.Post : HttpMethod.Put;
         var url = category.Id is null ? "api/admin/categories" : $"api/admin/categories/{category.Id}";
         using var request = NewRequest(method, url);
         request.Content = JsonContent.Create(new { category.Title, category.Image });
         using var response = await http.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        return response.IsSuccessStatusCode
+            ? new RegisterResult(true, category.Id is null ? "Categoria salva." : "Categoria salva.")
+            : new RegisterResult(false, await ReadProblemMessageAsync(response, cancellationToken));
     }
 
-    public async Task DeleteCategoryAsync(int id, CancellationToken cancellationToken = default)
+    public async Task<RegisterResult> DeleteCategoryAsync(int id, CancellationToken cancellationToken = default)
     {
         using var request = NewRequest(HttpMethod.Delete, $"api/admin/categories/{id}");
         using var response = await http.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        return response.IsSuccessStatusCode
+            ? new RegisterResult(true, "Categoria excluida.")
+            : new RegisterResult(false, await ReadProblemMessageAsync(response, cancellationToken));
     }
 
     public async Task<AdminSubCategory[]> GetAdminSubCategoriesAsync(CancellationToken cancellationToken = default)
@@ -501,21 +520,25 @@ public sealed class MarketplaceApiClient(HttpClient http, ClientState state)
         return await response.Content.ReadFromJsonAsync<AdminSubCategory[]>(cancellationToken) ?? [];
     }
 
-    public async Task SaveSubCategoryAsync(AdminSubCategoryRequest subCategory, CancellationToken cancellationToken = default)
+    public async Task<RegisterResult> SaveSubCategoryAsync(AdminSubCategoryRequest subCategory, CancellationToken cancellationToken = default)
     {
         var method = subCategory.Id is null ? HttpMethod.Post : HttpMethod.Put;
         var url = subCategory.Id is null ? "api/admin/subcategories" : $"api/admin/subcategories/{subCategory.Id}";
         using var request = NewRequest(method, url);
         request.Content = JsonContent.Create(new { subCategory.CategoryId, subCategory.Title });
         using var response = await http.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        return response.IsSuccessStatusCode
+            ? new RegisterResult(true, "Subcategoria salva.")
+            : new RegisterResult(false, await ReadProblemMessageAsync(response, cancellationToken));
     }
 
-    public async Task DeleteSubCategoryAsync(int id, CancellationToken cancellationToken = default)
+    public async Task<RegisterResult> DeleteSubCategoryAsync(int id, CancellationToken cancellationToken = default)
     {
         using var request = NewRequest(HttpMethod.Delete, $"api/admin/subcategories/{id}");
         using var response = await http.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        return response.IsSuccessStatusCode
+            ? new RegisterResult(true, "Subcategoria excluida.")
+            : new RegisterResult(false, await ReadProblemMessageAsync(response, cancellationToken));
     }
 
     public async Task<AdminAttribute[]> GetAdminAttributesAsync(CancellationToken cancellationToken = default)
@@ -530,21 +553,25 @@ public sealed class MarketplaceApiClient(HttpClient http, ClientState state)
         return await response.Content.ReadFromJsonAsync<AdminAttribute[]>(cancellationToken) ?? [];
     }
 
-    public async Task SaveAttributeAsync(AdminAttributeRequest attribute, CancellationToken cancellationToken = default)
+    public async Task<RegisterResult> SaveAttributeAsync(AdminAttributeRequest attribute, CancellationToken cancellationToken = default)
     {
         var method = attribute.Id is null ? HttpMethod.Post : HttpMethod.Put;
         var url = attribute.Id is null ? "api/admin/attributes" : $"api/admin/attributes/{attribute.Id}";
         using var request = NewRequest(method, url);
         request.Content = JsonContent.Create(new { attribute.Name });
         using var response = await http.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        return response.IsSuccessStatusCode
+            ? new RegisterResult(true, "Atributo salvo.")
+            : new RegisterResult(false, await ReadProblemMessageAsync(response, cancellationToken));
     }
 
-    public async Task DeleteAttributeAsync(int id, CancellationToken cancellationToken = default)
+    public async Task<RegisterResult> DeleteAttributeAsync(int id, CancellationToken cancellationToken = default)
     {
         using var request = NewRequest(HttpMethod.Delete, $"api/admin/attributes/{id}");
         using var response = await http.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        return response.IsSuccessStatusCode
+            ? new RegisterResult(true, "Atributo excluido.")
+            : new RegisterResult(false, await ReadProblemMessageAsync(response, cancellationToken));
     }
 
     public async Task<AdminUser[]> GetAdminUsersAsync(CancellationToken cancellationToken = default)
@@ -559,14 +586,16 @@ public sealed class MarketplaceApiClient(HttpClient http, ClientState state)
         return await response.Content.ReadFromJsonAsync<AdminUser[]>(cancellationToken) ?? [];
     }
 
-    public async Task SaveUserAsync(AdminUserRequest user, CancellationToken cancellationToken = default)
+    public async Task<RegisterResult> SaveUserAsync(AdminUserRequest user, CancellationToken cancellationToken = default)
     {
         var method = user.Id is null ? HttpMethod.Post : HttpMethod.Put;
         var url = user.Id is null ? "api/admin/users" : $"api/admin/users/{user.Id}";
         using var request = NewRequest(method, url);
         request.Content = JsonContent.Create(new { user.Name, user.LastName, user.Login, user.Password, user.Cpf, user.Role });
         using var response = await http.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        return response.IsSuccessStatusCode
+            ? new RegisterResult(true, "Usuario salvo.")
+            : new RegisterResult(false, await ReadProblemMessageAsync(response, cancellationToken));
     }
 
     public async Task<RegisterResult> ResetUserPasswordAsync(Guid id, string password, CancellationToken cancellationToken = default)
@@ -579,11 +608,13 @@ public sealed class MarketplaceApiClient(HttpClient http, ClientState state)
             : new RegisterResult(false, await ReadProblemMessageAsync(response, cancellationToken));
     }
 
-    public async Task DeleteUserAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<RegisterResult> DeleteUserAsync(Guid id, CancellationToken cancellationToken = default)
     {
         using var request = NewRequest(HttpMethod.Delete, $"api/admin/users/{id}");
         using var response = await http.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        return response.IsSuccessStatusCode
+            ? new RegisterResult(true, "Usuario excluido.")
+            : new RegisterResult(false, await ReadProblemMessageAsync(response, cancellationToken));
     }
 
     public async Task<AdminSeller[]> GetAdminSellersAsync(CancellationToken cancellationToken = default)
@@ -610,27 +641,33 @@ public sealed class MarketplaceApiClient(HttpClient http, ClientState state)
         return await response.Content.ReadFromJsonAsync<AdminSeller>(cancellationToken);
     }
 
-    public async Task SaveSellerAsync(AdminSellerRequest seller, CancellationToken cancellationToken = default)
+    public async Task<RegisterResult> SaveSellerAsync(AdminSellerRequest seller, CancellationToken cancellationToken = default)
     {
         using var request = NewRequest(HttpMethod.Put, $"api/admin/sellers/{seller.Id}");
         request.Content = JsonContent.Create(seller);
         using var response = await http.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        return response.IsSuccessStatusCode
+            ? new RegisterResult(true, "Vendedor salvo.")
+            : new RegisterResult(false, await ReadProblemMessageAsync(response, cancellationToken));
     }
 
-    public async Task CreateSellerAsync(AdminSellerCreateRequest seller, CancellationToken cancellationToken = default)
+    public async Task<RegisterResult> CreateSellerAsync(AdminSellerCreateRequest seller, CancellationToken cancellationToken = default)
     {
         using var request = NewRequest(HttpMethod.Post, "api/admin/sellers");
         request.Content = JsonContent.Create(seller);
         using var response = await http.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        return response.IsSuccessStatusCode
+            ? new RegisterResult(true, "Vendedor criado.")
+            : new RegisterResult(false, await ReadProblemMessageAsync(response, cancellationToken));
     }
 
-    public async Task DeleteSellerAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<RegisterResult> DeleteSellerAsync(Guid id, CancellationToken cancellationToken = default)
     {
         using var request = NewRequest(HttpMethod.Delete, $"api/admin/sellers/{id}");
         using var response = await http.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        return response.IsSuccessStatusCode
+            ? new RegisterResult(true, "Vendedor removido.")
+            : new RegisterResult(false, await ReadProblemMessageAsync(response, cancellationToken));
     }
 
     public async Task<AdminCarouselImage[]> GetCarouselAsync(CancellationToken cancellationToken = default)
@@ -817,6 +854,7 @@ public sealed record AdminProductRequest(
     string[] Images,
     ProductAttributeValueRequest[] Attributes);
 public sealed record SaveProductResponse(int Id);
+public sealed record SaveProductResult(bool Succeeded, string Message, int? Id);
 public sealed record ProductImportCreated(int JobId);
 public sealed record PagedResult<T>(T[] Items, int Total, int Page, int PageSize);
 public sealed record ProductImportJob(

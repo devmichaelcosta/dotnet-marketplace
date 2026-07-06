@@ -119,8 +119,15 @@ else
             return;
         }
 
-        await Api.SaveSubCategoryAsync(new AdminSubCategoryRequest(form.Id, form.CategoryId, form.Title.Trim()));
-        Navigation.NavigateTo("/admin/catalog?saved=subcategory");
+        var result = await Api.SaveSubCategoryAsync(new AdminSubCategoryRequest(form.Id, form.CategoryId, form.Title.Trim()));
+        if (result.Succeeded)
+        {
+            Navigation.NavigateTo("/admin/catalog?saved=subcategory");
+            return;
+        }
+
+        message = result.Message;
+        successMessage = false;
     }
 
     private sealed class SubCategoryForm

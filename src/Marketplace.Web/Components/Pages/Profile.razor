@@ -131,9 +131,12 @@ else
             return;
         }
 
-        await Api.SaveProfileAsync(form.ToRequest());
-        message = "Perfil salvo.";
-        await LoadAsync();
+        var result = await Api.SaveProfileAsync(form.ToRequest());
+        message = result.Message;
+        if (result.Succeeded)
+        {
+            await LoadAsync();
+        }
     }
 
     private void AddAddress()
