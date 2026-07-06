@@ -1,197 +1,240 @@
 @page "/admin/catalog"
+@attribute [Authorize(Roles = "admin")]
 @rendermode InteractiveServer
 @using Microsoft.AspNetCore.Components.Forms
 @inject MarketplaceApiClient Api
 @inject ClientState State
+@inject NavigationManager Navigation
 
 <PageTitle>Catalogo administrativo</PageTitle>
 
-<div class="toolbar">
-    <div>
-        <h1>Catalogo</h1>
-        <p>Categorias, subcategorias e atributos da ficha tecnica.</p>
+<section class="admin-imports-shell admin-catalog-shell">
+    <div class="admin-imports-hero">
+        <div>
+            <span>Admin</span>
+            <h1>Catalogo</h1>
+            <p>Categorias, subcategorias e atributos da ficha tecnica.</p>
+        </div>
+        <div class="segment-control">
+            <button class="btn @(tab == AdminCatalogTab.Categories ? "btn-primary" : "btn-outline-secondary")" @onclick="() => tab = AdminCatalogTab.Categories">Categorias</button>
+            <button class="btn @(tab == AdminCatalogTab.SubCategories ? "btn-primary" : "btn-outline-secondary")" @onclick="() => tab = AdminCatalogTab.SubCategories">Subcategorias</button>
+            <button class="btn @(tab == AdminCatalogTab.Attributes ? "btn-primary" : "btn-outline-secondary")" @onclick="() => tab = AdminCatalogTab.Attributes">Atributos</button>
+        </div>
     </div>
-    <div class="segment-control">
-        <button class="btn @(tab == AdminCatalogTab.Categories ? "btn-primary" : "btn-outline-secondary")" @onclick="() => tab = AdminCatalogTab.Categories">Categorias</button>
-        <button class="btn @(tab == AdminCatalogTab.SubCategories ? "btn-primary" : "btn-outline-secondary")" @onclick="() => tab = AdminCatalogTab.SubCategories">Subcategorias</button>
-        <button class="btn @(tab == AdminCatalogTab.Attributes ? "btn-primary" : "btn-outline-secondary")" @onclick="() => tab = AdminCatalogTab.Attributes">Atributos</button>
-    </div>
-</div>
 
-@if (!State.IsAuthenticated)
-{
-    <p>Faca login como admin para acessar esta area.</p>
-}
-else if (loading)
-{
-    <p>Carregando dados do catalogo...</p>
-}
-else
-{
+    @if (!State.IsAuthenticated)
+    {
+        <div class="admin-import-card">Faca login como admin para acessar esta area.</div>
+    }
+    else if (loading)
+    {
+        <div class="admin-import-card">Carregando dados do catalogo...</div>
+    }
+    else
+    {
     @if (!string.IsNullOrWhiteSpace(message))
     {
-        <p class="notice">@message</p>
+        <p class="notice @(successMessage ? "notice-success" : null)">@message</p>
     }
 
     @switch (tab)
     {
         case AdminCatalogTab.Categories:
-            <section class="admin-grid">
-                <EditForm Model="categoryForm" OnValidSubmit="SaveCategoryAsync" FormName="category-form" class="form-panel wide-form">
-                    <DataAnnotationsValidator />
-                    <h2>@(categoryForm.Id is null ? "Nova categoria" : "Editar categoria")</h2>
-                    <label>
-                        Titulo
-                        <InputText class="form-control" @bind-Value="categoryForm.Title" />
-                    </label>
-                    <label>
-                        Imagem
-                        <InputText class="form-control" @bind-Value="categoryForm.Image" />
-                    </label>
-                    <InputFile OnChange="UploadCategoryImageAsync" accept="image/*" />
-                    @if (!string.IsNullOrWhiteSpace(categoryForm.Image))
-                    {
-                        <img class="admin-preview" src="@Api.AssetUrl(categoryForm.Image)" alt="Preview da categoria" />
-                    }
-                    <div class="form-actions">
-                        <button class="btn btn-primary" type="submit">Salvar</button>
-                        <button class="btn btn-outline-secondary" type="button" @onclick="ResetCategoryForm">Limpar</button>
+            <section class="admin-import-card admin-table-card">
+                <div class="admin-table-header">
+                    <div>
+                        <span class="admin-card-eyebrow">Categorias</span>
+                        <h2>Categorias cadastradas</h2>
                     </div>
-                </EditForm>
+                    <button class="btn btn-primary" type="button" @onclick="CreateCategory">Nova categoria</button>
+                </div>
 
-                <div class="table-panel">
-                    <table class="table">
+                <form class="admin-filter-bar admin-catalog-filter" @onsubmit="SearchCategoriesAsync" @onsubmit:preventDefault="true">
+                    <input class="form-control" placeholder="Buscar categoria" @bind="categorySearch" @bind:event="oninput" />
+                    <button class="btn btn-outline-secondary" type="submit">Buscar</button>
+                </form>
+
+                <div class="admin-table-scroll">
+                    <table class="table admin-data-table">
                         <thead>
                             <tr>
-                                <th>Categoria</th>
-                                <th>Imagem</th>
-                                <th>Subcategorias</th>
                                 <th></th>
+                                <th><button class="table-sort" type="button" @onclick='() => SortCategories("title")'>Categoria</button></th>
+                                <th>Imagem</th>
+                                <th class="number-cell">Subcategorias</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var category in categories)
+                            @foreach (var category in FilteredCategories)
                             {
                                 <tr>
+                                    <td class="actions-column">
+                                        <div class="action-cell">
+                                            <button class="btn btn-sm btn-outline-secondary icon-action" type="button" title="Editar" @onclick="() => EditCategory(category.Id)">
+                                                <i class="fa fa-pen"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger icon-action" type="button" title="Excluir" @onclick="() => DeleteCategoryAsync(category.Id)">
+                                                <i class="fa fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
                                     <td>@category.Title</td>
                                     <td>@category.Image</td>
                                     <td>@category.SubCategories.Length</td>
-                                    <td class="table-actions">
-                                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => EditCategory(category)">Editar</button>
-                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteCategoryAsync(category.Id)">Excluir</button>
-                                    </td>
                                 </tr>
                             }
                         </tbody>
                     </table>
                 </div>
             </section>
-            break;
-        case AdminCatalogTab.SubCategories:
-            <section class="admin-grid">
-                <EditForm Model="subCategoryForm" OnValidSubmit="SaveSubCategoryAsync" FormName="subcategory-form" class="form-panel wide-form">
-                    <DataAnnotationsValidator />
-                    <h2>@(subCategoryForm.Id is null ? "Nova subcategoria" : "Editar subcategoria")</h2>
-                    <label>
-                        Categoria
-                        <InputSelect class="form-control" @bind-Value="subCategoryForm.CategoryId">
-                            @foreach (var category in categories)
-                            {
-                                <option value="@category.Id">@category.Title</option>
-                            }
-                        </InputSelect>
-                    </label>
-                    <label>
-                        Titulo
-                        <InputText class="form-control" @bind-Value="subCategoryForm.Title" />
-                    </label>
-                    <div class="form-actions">
-                        <button class="btn btn-primary" type="submit">Salvar</button>
-                        <button class="btn btn-outline-secondary" type="button" @onclick="ResetSubCategoryForm">Limpar</button>
+                break;
+            case AdminCatalogTab.SubCategories:
+                <section class="admin-import-card admin-table-card">
+                    <div class="admin-table-header">
+                        <div>
+                            <span class="admin-card-eyebrow">Subcategorias</span>
+                            <h2>Subcategorias cadastradas</h2>
+                        </div>
+                        <button class="btn btn-primary" type="button" @onclick="CreateSubCategory">Nova subcategoria</button>
                     </div>
-                </EditForm>
 
-                <div class="table-panel">
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Subcategoria</th>
-                                <th>Categoria</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var subCategory in subCategories)
-                            {
+                    <form class="admin-filter-bar admin-catalog-filter" @onsubmit="SearchSubCategoriesAsync" @onsubmit:preventDefault="true">
+                        <input class="form-control" placeholder="Buscar subcategoria" @bind="subCategorySearch" @bind:event="oninput" />
+                        <button class="btn btn-outline-secondary" type="submit">Buscar</button>
+                    </form>
+
+                    <div class="admin-table-scroll">
+                        <table class="table admin-data-table">
+                            <thead>
                                 <tr>
-                                    <td>@subCategory.Title</td>
-                                    <td>@subCategory.Category</td>
-                                    <td class="table-actions">
-                                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => EditSubCategory(subCategory)">Editar</button>
-                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteSubCategoryAsync(subCategory.Id)">Excluir</button>
-                                    </td>
+                                    <th></th>
+                                    <th><button class="table-sort" type="button" @onclick='() => SortSubCategories("title")'>Subcategoria</button></th>
+                                    <th><button class="table-sort" type="button" @onclick='() => SortSubCategories("category")'>Categoria</button></th>
                                 </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-            break;
-        case AdminCatalogTab.Attributes:
-            <section class="admin-grid">
-                <EditForm Model="attributeForm" OnValidSubmit="SaveAttributeAsync" FormName="attribute-form" class="form-panel wide-form">
-                    <DataAnnotationsValidator />
-                    <h2>@(attributeForm.Id is null ? "Novo atributo" : "Editar atributo")</h2>
-                    <label>
-                        Nome
-                        <InputText class="form-control" @bind-Value="attributeForm.Name" />
-                    </label>
-                    <div class="form-actions">
-                        <button class="btn btn-primary" type="submit">Salvar</button>
-                        <button class="btn btn-outline-secondary" type="button" @onclick="ResetAttributeForm">Limpar</button>
+                            </thead>
+                            <tbody>
+                                @foreach (var subCategory in FilteredSubCategories)
+                                {
+                                    <tr>
+                                        <td class="actions-column">
+                                            <div class="action-cell">
+                                                <button class="btn btn-sm btn-outline-secondary icon-action" type="button" title="Editar" @onclick="() => EditSubCategory(subCategory.Id)">
+                                                    <i class="fa fa-pen"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger icon-action" type="button" title="Excluir" @onclick="() => DeleteSubCategoryAsync(subCategory.Id)">
+                                                    <i class="fa fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                        <td>@subCategory.Title</td>
+                                        <td>@subCategory.Category</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
                     </div>
-                </EditForm>
+                </section>
+                break;
+            case AdminCatalogTab.Attributes:
+                <section class="admin-import-card admin-table-card">
+                    <div class="admin-table-header">
+                        <div>
+                            <span class="admin-card-eyebrow">Atributos</span>
+                            <h2>Atributos cadastrados</h2>
+                        </div>
+                        <button class="btn btn-primary" type="button" @onclick="CreateAttribute">Novo atributo</button>
+                    </div>
 
-                <div class="table-panel">
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Atributo</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var catalogAttribute in attributes)
-                            {
+                    <form class="admin-filter-bar admin-catalog-filter" @onsubmit="SearchAttributesAsync" @onsubmit:preventDefault="true">
+                        <input class="form-control" placeholder="Buscar atributo" @bind="attributeSearch" @bind:event="oninput" />
+                        <button class="btn btn-outline-secondary" type="submit">Buscar</button>
+                    </form>
+
+                    <div class="admin-table-scroll">
+                        <table class="table admin-data-table">
+                            <thead>
                                 <tr>
-                                    <td>@catalogAttribute.Name</td>
-                                    <td class="table-actions">
-                                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => EditAttribute(catalogAttribute)">Editar</button>
-                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAttributeAsync(catalogAttribute.Id)">Excluir</button>
-                                    </td>
+                                    <th></th>
+                                    <th><button class="table-sort" type="button" @onclick='() => SortAttributes("name")'>Atributo</button></th>
                                 </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-            break;
+                            </thead>
+                            <tbody>
+                                @foreach (var catalogAttribute in FilteredAttributes)
+                                {
+                                    <tr>
+                                        <td class="actions-column">
+                                            <div class="action-cell">
+                                                <button class="btn btn-sm btn-outline-secondary icon-action" type="button" title="Editar" @onclick="() => EditAttribute(catalogAttribute.Id)">
+                                                    <i class="fa fa-pen"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger icon-action" type="button" title="Excluir" @onclick="() => DeleteAttributeAsync(catalogAttribute.Id)">
+                                                    <i class="fa fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                        <td>@catalogAttribute.Name</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+                break;
+        }
     }
-}
+</section>
 
 @code {
     private AdminCatalogTab tab = AdminCatalogTab.Categories;
     private bool loading;
     private string? message;
+    private bool successMessage;
     private AdminCategory[] categories = [];
     private AdminSubCategory[] subCategories = [];
     private AdminAttribute[] attributes = [];
-    private CategoryForm categoryForm = new();
-    private SubCategoryForm subCategoryForm = new();
-    private AttributeForm attributeForm = new();
+    private string categorySearch = string.Empty;
+    private string subCategorySearch = string.Empty;
+    private string attributeSearch = string.Empty;
+    private string categorySort = "title";
+    private string categoryDirection = "asc";
+    private string subCategorySort = "title";
+    private string subCategoryDirection = "asc";
+    private string attributeSort = "name";
+    private string attributeDirection = "asc";
+    private IEnumerable<AdminCategory> FilteredCategories =>
+        ApplyCategorySort(categories.Where(category =>
+            string.IsNullOrWhiteSpace(categorySearch) ||
+            category.Title.Contains(categorySearch, StringComparison.OrdinalIgnoreCase)));
+
+    private IEnumerable<AdminSubCategory> FilteredSubCategories =>
+        ApplySubCategorySort(subCategories.Where(subCategory =>
+            string.IsNullOrWhiteSpace(subCategorySearch) ||
+            subCategory.Title.Contains(subCategorySearch, StringComparison.OrdinalIgnoreCase) ||
+            subCategory.Category.Contains(subCategorySearch, StringComparison.OrdinalIgnoreCase)));
+
+    private IEnumerable<AdminAttribute> FilteredAttributes =>
+        ApplyAttributeSort(attributes.Where(catalogAttribute =>
+            string.IsNullOrWhiteSpace(attributeSearch) ||
+            catalogAttribute.Name.Contains(attributeSearch, StringComparison.OrdinalIgnoreCase)));
 
     protected override async Task OnInitializedAsync()
     {
+        if (Navigation.Uri.Contains("saved=category", StringComparison.OrdinalIgnoreCase))
+        {
+            message = "Categoria salva com sucesso.";
+            successMessage = true;
+        }
+        else if (Navigation.Uri.Contains("saved=subcategory", StringComparison.OrdinalIgnoreCase))
+        {
+            message = "Subcategoria salva com sucesso.";
+            successMessage = true;
+        }
+        else if (Navigation.Uri.Contains("saved=attribute", StringComparison.OrdinalIgnoreCase))
+        {
+            message = "Atributo salvo com sucesso.";
+            successMessage = true;
+        }
+
         if (State.IsAuthenticated)
         {
             await LoadAsync();
@@ -204,72 +247,36 @@ else
         categories = await Api.GetAdminCategoriesAsync();
         subCategories = await Api.GetAdminSubCategoriesAsync();
         attributes = await Api.GetAdminAttributesAsync();
-        EnsureSelectedCategory();
         loading = false;
     }
 
-    private async Task SaveCategoryAsync()
+    private void CreateCategory() => Navigation.NavigateTo("/admin/catalog/categories/create");
+    private void EditCategory(int id) => Navigation.NavigateTo($"/admin/catalog/categories/{id}/edit");
+
+    private Task SearchCategoriesAsync() => Task.CompletedTask;
+
+    private void SortCategories(string column)
     {
-        if (string.IsNullOrWhiteSpace(categoryForm.Title))
+        if (categorySort == column)
         {
-            message = "Informe o titulo da categoria.";
+            categoryDirection = categoryDirection == "asc" ? "desc" : "asc";
             return;
         }
 
-        await Api.SaveCategoryAsync(new AdminCategoryRequest(categoryForm.Id, categoryForm.Title.Trim(), categoryForm.Image));
-        message = "Categoria salva.";
-        ResetCategoryForm();
-        await LoadAsync();
-    }
-
-    private async Task UploadCategoryImageAsync(InputFileChangeEventArgs args)
-    {
-        var result = await Api.UploadImageAsync("categories", args.File);
-        if (result is null)
-        {
-            message = "Nao foi possivel enviar a imagem.";
-            return;
-        }
-
-        categoryForm.Image = result.Url;
-        message = "Imagem enviada.";
-    }
-
-    private void EditCategory(AdminCategory category)
-    {
-        categoryForm = new CategoryForm { Id = category.Id, Title = category.Title, Image = category.Image };
+        categorySort = column;
+        categoryDirection = "asc";
     }
 
     private async Task DeleteCategoryAsync(int id)
     {
         await Api.DeleteCategoryAsync(id);
         message = "Categoria excluida.";
+        successMessage = true;
         await LoadAsync();
     }
 
-    private void ResetCategoryForm()
-    {
-        categoryForm = new CategoryForm();
-    }
-
-    private async Task SaveSubCategoryAsync()
-    {
-        if (string.IsNullOrWhiteSpace(subCategoryForm.Title))
-        {
-            message = "Informe o titulo da subcategoria.";
-            return;
-        }
-
-        await Api.SaveSubCategoryAsync(new AdminSubCategoryRequest(subCategoryForm.Id, subCategoryForm.CategoryId, subCategoryForm.Title.Trim()));
-        message = "Subcategoria salva.";
-        ResetSubCategoryForm();
-        await LoadAsync();
-    }
-
-    private void EditSubCategory(AdminSubCategory subCategory)
-    {
-        subCategoryForm = new SubCategoryForm { Id = subCategory.Id, CategoryId = subCategory.CategoryId, Title = subCategory.Title };
-    }
+    private void CreateSubCategory() => Navigation.NavigateTo("/admin/catalog/subcategories/create");
+    private void EditSubCategory(int id) => Navigation.NavigateTo($"/admin/catalog/subcategories/{id}/edit");
 
     private async Task DeleteSubCategoryAsync(int id)
     {
@@ -278,30 +285,22 @@ else
         await LoadAsync();
     }
 
-    private void ResetSubCategoryForm()
-    {
-        subCategoryForm = new SubCategoryForm();
-        EnsureSelectedCategory();
-    }
+    private Task SearchSubCategoriesAsync() => Task.CompletedTask;
 
-    private async Task SaveAttributeAsync()
+    private void SortSubCategories(string column)
     {
-        if (string.IsNullOrWhiteSpace(attributeForm.Name))
+        if (subCategorySort == column)
         {
-            message = "Informe o nome do atributo.";
+            subCategoryDirection = subCategoryDirection == "asc" ? "desc" : "asc";
             return;
         }
 
-        await Api.SaveAttributeAsync(new AdminAttributeRequest(attributeForm.Id, attributeForm.Name.Trim()));
-        message = "Atributo salvo.";
-        ResetAttributeForm();
-        await LoadAsync();
+        subCategorySort = column;
+        subCategoryDirection = "asc";
     }
 
-    private void EditAttribute(AdminAttribute attribute)
-    {
-        attributeForm = new AttributeForm { Id = attribute.Id, Name = attribute.Name };
-    }
+    private void CreateAttribute() => Navigation.NavigateTo("/admin/catalog/attributes/create");
+    private void EditAttribute(int id) => Navigation.NavigateTo($"/admin/catalog/attributes/{id}/edit");
 
     private async Task DeleteAttributeAsync(int id)
     {
@@ -310,18 +309,38 @@ else
         await LoadAsync();
     }
 
-    private void ResetAttributeForm()
+    private Task SearchAttributesAsync() => Task.CompletedTask;
+
+    private void SortAttributes(string column)
     {
-        attributeForm = new AttributeForm();
+        if (attributeSort == column)
+        {
+            attributeDirection = attributeDirection == "asc" ? "desc" : "asc";
+            return;
+        }
+
+        attributeSort = column;
+        attributeDirection = "asc";
     }
 
-    private void EnsureSelectedCategory()
-    {
-        if (subCategoryForm.CategoryId == 0 && categories.Length > 0)
+    private IEnumerable<AdminCategory> ApplyCategorySort(IEnumerable<AdminCategory> source) =>
+        categorySort == "title" && categoryDirection == "desc"
+            ? source.OrderByDescending(category => category.Title)
+            : source.OrderBy(category => category.Title);
+
+    private IEnumerable<AdminSubCategory> ApplySubCategorySort(IEnumerable<AdminSubCategory> source) =>
+        subCategorySort switch
         {
-            subCategoryForm.CategoryId = categories[0].Id;
-        }
-    }
+            "category" when subCategoryDirection == "desc" => source.OrderByDescending(subCategory => subCategory.Category).ThenByDescending(subCategory => subCategory.Title),
+            "category" => source.OrderBy(subCategory => subCategory.Category).ThenBy(subCategory => subCategory.Title),
+            _ when subCategoryDirection == "desc" => source.OrderByDescending(subCategory => subCategory.Title),
+            _ => source.OrderBy(subCategory => subCategory.Title)
+        };
+
+    private IEnumerable<AdminAttribute> ApplyAttributeSort(IEnumerable<AdminAttribute> source) =>
+        attributeDirection == "desc"
+            ? source.OrderByDescending(catalogAttribute => catalogAttribute.Name)
+            : source.OrderBy(catalogAttribute => catalogAttribute.Name);
 
     private enum AdminCatalogTab
     {
@@ -330,23 +349,4 @@ else
         Attributes
     }
 
-    private sealed class CategoryForm
-    {
-        public int? Id { get; set; }
-        public string Title { get; set; } = string.Empty;
-        public string? Image { get; set; }
-    }
-
-    private sealed class SubCategoryForm
-    {
-        public int? Id { get; set; }
-        public int CategoryId { get; set; }
-        public string Title { get; set; } = string.Empty;
-    }
-
-    private sealed class AttributeForm
-    {
-        public int? Id { get; set; }
-        public string Name { get; set; } = string.Empty;
-    }
 }

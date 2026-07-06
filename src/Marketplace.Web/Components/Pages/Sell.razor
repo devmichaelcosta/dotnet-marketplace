@@ -61,8 +61,17 @@
             return;
         }
 
-        var result = await Api.RegisterAsync(new RegisterRequest(form.Name.Trim(), form.LastName.Trim(), form.Login.Trim(), form.Password, form.Cpf), seller: true);
+        var request = new RegisterRequest(
+            form.Name.Trim(), 
+            form.LastName.Trim(),
+            form.Login.Trim(), 
+            form.Password, 
+            form.Cpf
+        );
+
+        var result = await Api.RegisterAsync(request, seller: true);
         message = result.Succeeded ? "Conta de vendedor criada. Agora faca login." : result.Message;
+
         if (result.Succeeded)
         {
             form = new RegisterForm();

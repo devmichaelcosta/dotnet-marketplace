@@ -1,4 +1,5 @@
 @page "/admin/ratings"
+@attribute [Authorize(Roles = "admin")]
 @rendermode InteractiveServer
 @inject MarketplaceApiClient Api
 @inject ClientState State
@@ -27,20 +28,32 @@ else if (ratings.Length == 0)
 else
 {
     <div class="table-panel">
-        <table class="table">
+        <form class="admin-filter-bar" @onsubmit="SearchAsync" @onsubmit:preventDefault="true">
+            <input class="form-control" placeholder="Buscar por produto, usuario ou titulo" @bind="search" @bind:event="oninput" />
+            <button class="btn btn-outline-secondary" type="submit">Buscar</button>
+        </form>
+
+        <table class="table admin-data-table">
             <thead>
                 <tr>
-                    <th>Produto</th>
-                    <th>Usuario</th>
-                    <th>Avaliacao</th>
-                    <th>Nota</th>
                     <th></th>
+                    <th><button class="table-sort" type="button" @onclick='() => SortRatings("product")'>Produto</button></th>
+                    <th><button class="table-sort" type="button" @onclick='() => SortRatings("user")'>Usuario</button></th>
+                    <th><button class="table-sort" type="button" @onclick='() => SortRatings("title")'>Avaliacao</button></th>
+                    <th class="number-cell"><button class="table-sort" type="button" @onclick='() => SortRatings("rating")'>Nota</button></th>
                 </tr>
             </thead>
             <tbody>
-                @foreach (var rating in ratings)
+                @foreach (var rating in FilteredRatings)
                 {
                     <tr>
+                        <td class="actions-column">
+                            <div class="action-cell">
+                                <button class="btn btn-sm btn-primary icon-action" type="button" title="Aprovar" @onclick="() => ApproveAsync(rating.Id)">
+                                    <i class="fa fa-check"></i>
+                                </button>
+                            </div>
+                        </td>
                         <td>@rating.ProductTitle</td>
                         <td>@rating.UserName</td>
                         <td>
@@ -48,9 +61,6 @@ else
                             <p>@rating.Description</p>
                         </td>
                         <td>@rating.Rating</td>
-                        <td class="table-actions">
-                            <button class="btn btn-sm btn-primary" @onclick="() => ApproveAsync(rating.Id)">Aprovar</button>
-                        </td>
                     </tr>
                 }
             </tbody>
@@ -61,6 +71,16 @@ else
 @code {
     private bool loading;
     private PendingRating[] ratings = [];
+    private string search = string.Empty;
+    private string sort = "rating";
+    private string direction = "desc";
+
+    private IEnumerable<PendingRating> FilteredRatings =>
+        ApplySort(ratings.Where(rating =>
+            string.IsNullOrWhiteSpace(search) ||
+            rating.ProductTitle.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+            rating.UserName.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+            rating.Title.Contains(search, StringComparison.OrdinalIgnoreCase)));
 
     protected override async Task OnInitializedAsync()
     {
@@ -77,9 +97,36 @@ else
         loading = false;
     }
 
+    private Task SearchAsync() => Task.CompletedTask;
+
+    private void SortRatings(string column)
+    {
+        if (sort == column)
+        {
+            direction = direction == "asc" ? "desc" : "asc";
+            return;
+        }
+
+        sort = column;
+        direction = "asc";
+    }
+
     private async Task ApproveAsync(int id)
     {
         await Api.ApproveRatingAsync(id);
         await LoadAsync();
     }
+
+    private IEnumerable<PendingRating> ApplySort(IEnumerable<PendingRating> source) =>
+        (sort, direction) switch
+        {
+            ("product", "desc") => source.OrderByDescending(rating => rating.ProductTitle),
+            ("product", _) => source.OrderBy(rating => rating.ProductTitle),
+            ("user", "desc") => source.OrderByDescending(rating => rating.UserName),
+            ("user", _) => source.OrderBy(rating => rating.UserName),
+            ("title", "desc") => source.OrderByDescending(rating => rating.Title),
+            ("title", _) => source.OrderBy(rating => rating.Title),
+            ("rating", "desc") => source.OrderByDescending(rating => rating.Rating),
+            _ => source.OrderBy(rating => rating.Rating)
+        };
 }

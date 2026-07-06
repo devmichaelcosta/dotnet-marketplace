@@ -1,0 +1,7 @@
+@page "/admin/products/create"
+@attribute [Authorize(Roles = "admin,vendedor")]
+@rendermode InteractiveServer
+
+<PageTitle>Novo produto</PageTitle>
+
+<AdminProductEditor />

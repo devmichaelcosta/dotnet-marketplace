@@ -1,5 +1,4 @@
 using Marketplace.Api.Domain;
-using Marketplace.Api.Features;
 using Marketplace.Api.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,7 +13,12 @@ public static class CartEndpoints
         group.MapGet("/", async (HttpContext http, MarketplaceDbContext db, CancellationToken cancellationToken) =>
         {
             var cart = await db.GetOrCreateCartAsync(http.Request, http.User.GetUserId(), cancellationToken);
-            await db.Entry(cart).Collection(item => item.Items).Query().Include(item => item.Product!).ThenInclude(item => item.Images).LoadAsync(cancellationToken);
+
+            await db.Entry(cart)
+                .Collection(item => item.Items).Query()
+                .Include(item => item.Product!).ThenInclude(item => item.Images)
+                .LoadAsync(cancellationToken);
+
             return Results.Ok(cart.ToResponse());
         });
 

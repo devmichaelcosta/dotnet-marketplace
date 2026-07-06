@@ -1,0 +1,151 @@
+@using System.Linq
+@inject MarketplaceApiClient Api
+@inject NavigationManager Navigation
+
+@if (loading)
+{
+    <section class="admin-imports-shell">
+        <div class="admin-import-card">
+            <p>Carregando categoria...</p>
+        </div>
+    </section>
+}
+else
+{
+    <section class="admin-imports-shell admin-category-shell">
+        <div class="admin-imports-hero">
+            <div>
+                <span>Admin</span>
+                <h1>@(IsEditing ? "Editar categoria" : "Nova categoria")</h1>
+                <p>Informe os dados da categoria e clique em salvar.</p>
+                <nav class="nav-breadcrumb admin-breadcrumb">
+                    <span><a href="/admin/catalog">Catalogo</a></span>
+                    <span>@(IsEditing ? "Editar categoria" : "Nova categoria")</span>
+                </nav>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <p class="notice admin-import-notice @(successMessage ? "notice-success" : null)">@message</p>
+        }
+
+        <div class="admin-import-card">
+            <EditForm Model="form" OnValidSubmit="SaveAsync" FormName="category-form">
+                <DataAnnotationsValidator />
+
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label" for="title">Titulo</label>
+                        <InputText id="title" class="form-control" @bind-Value="form.Title" />
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label" for="image">Imagem</label>
+                        <InputText id="image" class="form-control" @bind-Value="form.Image" />
+                    </div>
+
+                    <div class="col-12">
+                        <InputFile OnChange="UploadImageAsync" accept="image/*" />
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(form.Image))
+                    {
+                        <div class="col-12">
+                            <img class="admin-preview" src="@Api.AssetUrl(form.Image)" alt="Preview da categoria" />
+                        </div>
+                    }
+
+                    <div class="col-12 d-flex gap-2 justify-content-end">
+                        <a class="btn btn-outline-secondary" href="/admin/catalog">Voltar</a>
+                        <button class="btn btn-primary" type="submit">Salvar categoria</button>
+                    </div>
+                </div>
+            </EditForm>
+        </div>
+    </section>
+}
+
+@code {
+    [Parameter]
+    public int? CategoryId { get; set; }
+
+    private bool loading = true;
+    private string? message;
+    private bool successMessage;
+    private CategoryForm form = new();
+
+    private bool IsEditing => CategoryId is not null;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        message = null;
+        successMessage = false;
+
+        if (CategoryId is not null)
+        {
+            var categories = await Api.GetAdminCategoriesAsync();
+            var category = categories.FirstOrDefault(item => item.Id == CategoryId.Value);
+            if (category is null)
+            {
+                message = "Categoria nao encontrada.";
+                loading = false;
+                return;
+            }
+
+            form = new CategoryForm
+            {
+                Id = category.Id,
+                Title = category.Title,
+                Image = category.Image
+            };
+        }
+        else
+        {
+            form = new CategoryForm();
+        }
+
+        loading = false;
+    }
+
+    private async Task UploadImageAsync(InputFileChangeEventArgs args)
+    {
+        var result = await Api.UploadImageAsync("categories", args.File);
+        if (result is null)
+        {
+            message = "Nao foi possivel enviar a imagem.";
+            successMessage = false;
+            return;
+        }
+
+        form.Image = result.Url;
+        message = "Imagem enviada.";
+        successMessage = true;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(form.Title))
+        {
+            message = "Informe o titulo da categoria.";
+            successMessage = false;
+            return;
+        }
+
+        await Api.SaveCategoryAsync(new AdminCategoryRequest(form.Id, form.Title.Trim(), form.Image));
+        Navigation.NavigateTo("/admin/catalog?saved=category");
+    }
+
+    private sealed class CategoryForm
+    {
+        public int? Id { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string? Image { get; set; }
+    }
+}

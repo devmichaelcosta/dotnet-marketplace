@@ -1,4 +1,5 @@
 @page "/admin/orders"
+@attribute [Authorize(Roles = "admin")]
 @rendermode InteractiveServer
 @inject MarketplaceApiClient Api
 @inject ClientState State
@@ -9,10 +10,6 @@
     <div>
         <h1>Pedidos</h1>
         <p>Consulta administrativa de compras realizadas.</p>
-    </div>
-    <div class="search">
-        <input class="form-control" placeholder="Cliente, login ou cidade" @bind="search" @bind:event="oninput" />
-        <button class="btn btn-primary" @onclick="LoadAsync">Buscar</button>
     </div>
 </div>
 
@@ -28,18 +25,23 @@ else
 {
     <section class="orders-layout">
         <div class="table-panel compact">
-            <table class="table">
+            <form class="admin-filter-bar" @onsubmit="LoadAsync" @onsubmit:preventDefault="true">
+                <input class="form-control" placeholder="Cliente, login ou cidade" @bind="search" @bind:event="oninput" />
+                <button class="btn btn-primary" type="submit">Buscar</button>
+            </form>
+
+            <table class="table admin-data-table">
                 <thead>
                     <tr>
-                        <th>Pedido</th>
-                        <th>Cliente</th>
-                        <th>Cidade</th>
-                        <th>Total</th>
-                        <th>Data</th>
+                        <th><button class="table-sort" type="button" @onclick='() => SortOrders("id")'>Pedido</button></th>
+                        <th><button class="table-sort" type="button" @onclick='() => SortOrders("customer")'>Cliente</button></th>
+                        <th><button class="table-sort" type="button" @onclick='() => SortOrders("city")'>Cidade</button></th>
+                        <th class="number-cell"><button class="table-sort" type="button" @onclick='() => SortOrders("total")'>Total</button></th>
+                        <th><button class="table-sort" type="button" @onclick='() => SortOrders("created")'>Data</button></th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var order in orders)
+                    @foreach (var order in FilteredOrders)
                     {
                         <tr class="selectable-row" @onclick="() => SelectAsync(order.Id)">
                             <td>#@order.Id</td>
@@ -98,6 +100,15 @@ else
     private string? search;
     private AdminOrderSummary[] orders = [];
     private AdminOrderDetails? selected;
+    private string sort = "created";
+    private string direction = "desc";
+
+    private IEnumerable<AdminOrderSummary> FilteredOrders =>
+        ApplySort(orders.Where(order =>
+            string.IsNullOrWhiteSpace(search) ||
+            order.UserName.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+            order.Login.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+            order.City.Contains(search, StringComparison.OrdinalIgnoreCase)));
 
     protected override async Task OnInitializedAsync()
     {
@@ -115,8 +126,35 @@ else
         loading = false;
     }
 
+    private void SortOrders(string column)
+    {
+        if (sort == column)
+        {
+            direction = direction == "asc" ? "desc" : "asc";
+            return;
+        }
+
+        sort = column;
+        direction = "asc";
+    }
+
     private async Task SelectAsync(int id)
     {
         selected = await Api.GetAdminOrderDetailsAsync(id);
     }
+
+    private IEnumerable<AdminOrderSummary> ApplySort(IEnumerable<AdminOrderSummary> source) =>
+        (sort, direction) switch
+        {
+            ("id", "desc") => source.OrderByDescending(order => order.Id),
+            ("id", _) => source.OrderBy(order => order.Id),
+            ("customer", "desc") => source.OrderByDescending(order => order.UserName).ThenByDescending(order => order.Login),
+            ("customer", _) => source.OrderBy(order => order.UserName).ThenBy(order => order.Login),
+            ("city", "desc") => source.OrderByDescending(order => order.City),
+            ("city", _) => source.OrderBy(order => order.City),
+            ("total", "desc") => source.OrderByDescending(order => order.Total),
+            ("total", _) => source.OrderBy(order => order.Total),
+            ("created", "desc") => source.OrderByDescending(order => order.CreatedAt),
+            _ => source.OrderBy(order => order.CreatedAt)
+        };
 }

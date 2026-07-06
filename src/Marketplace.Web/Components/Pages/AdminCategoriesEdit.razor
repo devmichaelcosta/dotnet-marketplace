@@ -1,0 +1,10 @@
+@page "/admin/catalog/categories/{Id:int}/edit"
+@attribute [Authorize(Roles = "admin")]
+@rendermode InteractiveServer
+
+<AdminCategoryEditor CategoryId="@Id" />
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+}

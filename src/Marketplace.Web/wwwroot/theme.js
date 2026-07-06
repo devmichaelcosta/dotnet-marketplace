@@ -154,49 +154,58 @@ window.marketplaceUi = {
     }
 };
 
-window.marketplaceAuth = (() => {
-    const storageKey = "marketplace-auth";
+window.marketplaceSession = {
+    async antiforgeryToken() {
+        const response = await fetch("/auth/antiforgery", {
+            method: "GET",
+            credentials: "same-origin"
+        });
 
-    function normalize(snapshot) {
-        if (!snapshot || !snapshot.token || !snapshot.userName) {
-            return null;
+        if (!response.ok) {
+            return "";
         }
 
-        return {
-            token: snapshot.token,
-            userName: snapshot.userName,
-            roles: Array.isArray(snapshot.roles) ? snapshot.roles : [],
-            cartId: snapshot.cartId || null
-        };
+        try {
+            const payload = await response.json();
+            return payload.token || "";
+        } catch {
+            return "";
+        }
+    },
+    async login(login, password) {
+        const token = await this.antiforgeryToken();
+        const response = await fetch("/auth/login", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+                "Content-Type": "application/json",
+                "RequestVerificationToken": token
+            },
+            body: JSON.stringify({ login, password })
+        });
+
+        if (response.ok) {
+            return { succeeded: true };
+        }
+
+        if (response.status === 401) {
+            return { succeeded: false, message: "Login ou senha invalidos." };
+        }
+
+        try {
+            return await response.json();
+        } catch {
+            return { succeeded: false, message: "Nao foi possivel entrar." };
+        }
+    },
+    async logout() {
+        const token = await this.antiforgeryToken();
+        await fetch("/auth/logout", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+                "RequestVerificationToken": token
+            }
+        });
     }
-
-    return {
-        save(snapshot) {
-            const normalized = normalize(snapshot);
-            if (!normalized) {
-                return;
-            }
-
-            try {
-                window.localStorage?.setItem(storageKey, JSON.stringify(normalized));
-            } catch {
-                // Some browser/privacy contexts disable localStorage.
-            }
-        },
-        read() {
-            try {
-                const value = window.localStorage?.getItem(storageKey);
-                return value ? normalize(JSON.parse(value)) : null;
-            } catch {
-                return null;
-            }
-        },
-        clear() {
-            try {
-                window.localStorage?.removeItem(storageKey);
-            } catch {
-                // Some browser/privacy contexts disable localStorage.
-            }
-        }
-    };
-})();
+};

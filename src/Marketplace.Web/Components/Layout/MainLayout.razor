@@ -1,9 +1,8 @@
 ﻿@inherits LayoutComponentBase
 @inject NavigationManager Navigation
-@inject IJSRuntime Js
-@inject ClientState State
 
 <div class="legacy-shell">
+    <AuthStateSync />
     <LegacyNavigation />
 
     <main>
@@ -50,24 +49,6 @@
 </div>
 
 @code {
-    private bool authRestored;
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (!firstRender || authRestored)
-        {
-            return;
-        }
-
-        authRestored = true;
-        var snapshot = await Js.InvokeAsync<AuthSnapshot?>("marketplaceAuth.read");
-        if (snapshot is not null && !State.IsAuthenticated)
-        {
-            State.Restore(snapshot);
-            StateHasChanged();
-        }
-    }
-
     private bool IsHome
     {
         get

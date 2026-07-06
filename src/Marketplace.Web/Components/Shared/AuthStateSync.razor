@@ -1,0 +1,24 @@
+@inject ClientState ClientState
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (AuthenticationStateTask is null)
+        {
+            return;
+        }
+
+        var authenticationState = await AuthenticationStateTask;
+        var user = authenticationState.User;
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            ClientState.Restore(user);
+            return;
+        }
+
+        ClientState.SignOut();
+    }
+}

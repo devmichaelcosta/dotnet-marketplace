@@ -1,0 +1,298 @@
+﻿@page "/admin/products/{Id:int}/similar"
+@attribute [Authorize(Roles = "admin,vendedor")]
+@rendermode InteractiveServer
+@inject MarketplaceApiClient Api
+@inject ClientState State
+@inject NavigationManager Navigation
+
+<PageTitle>Produtos similares</PageTitle>
+
+<section class="admin-imports-shell">
+    <div class="admin-imports-hero">
+        <div>
+            <span>Admin</span>
+            <h1>Produtos similares</h1>
+            <p>Selecione um ou mais produtos e salve os relacionados deste item.</p>
+            <nav class="nav-breadcrumb admin-breadcrumb">
+                <span><a href="/admin/products">Produto</a></span>
+                <span><a href="@($"/admin/products/{Id}/edit")">Editar</a></span>
+                <span>Similares</span>
+            </nav>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary" href="@($"/admin/products/{Id}/edit")">Voltar</a>
+            <button class="btn btn-primary" type="button" @onclick="SaveAsync">Salvar relacoes</button>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(message))
+    {
+        <p class="notice admin-import-notice">@message</p>
+    }
+
+    @if (loading)
+    {
+        <div class="admin-import-card"><p>Carregando produtos...</p></div>
+    }
+    else
+    {
+        <div class="admin-import-card admin-table-card">
+            <div class="admin-table-header">
+                <div>
+                    <span class="admin-card-eyebrow">Selecionados</span>
+                    <h2>@productTitle</h2>
+                </div>
+                <span class="admin-total-pill">@selectedIds.Count escolhidos</span>
+            </div>
+
+            @if (selectedProducts.Count == 0)
+            {
+                <div class="alert alert-info">Nenhum produto relacionado selecionado.</div>
+            }
+            else
+            {
+                <div class="admin-table-scroll mb-3">
+                    <table class="table admin-data-table">
+                        <thead>
+                            <tr>
+                                <th>Produto</th>
+                                <th>SKU</th>
+                                <th class="number-cell">Preco</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var product in selectedProducts)
+                            {
+                                <tr>
+                                    <td>@product.Title</td>
+                                    <td>@product.Sku</td>
+                                    <td class="number-cell">@product.Price.ToString("C")</td>
+                                    <td class="actions-column">
+                                        <div class="action-cell">
+                                            <button class="btn btn-sm btn-outline-danger icon-action" type="button" title="Remover" @onclick="() => ToggleSelection(product.Id, false)">
+                                                <i class="fa fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+
+            <form class="admin-filter-bar" @onsubmit="SearchAsync" @onsubmit:preventDefault="true">
+                <input class="form-control" placeholder="Buscar produto" @bind="search" @bind:event="oninput" />
+                <select class="form-control" value="@pageSize" @onchange="OnPageSizeChanged">
+                    <option value="10">10 por pagina</option>
+                    <option value="25">25 por pagina</option>
+                    <option value="50">50 por pagina</option>
+                </select>
+                <button class="btn btn-outline-secondary" type="submit">Buscar</button>
+            </form>
+
+            <div class="admin-table-scroll">
+                <table class="table admin-data-table">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th><button class="table-sort" type="button" @onclick='() => SortAsync("title")'>Produto</button></th>
+                            <th><button class="table-sort" type="button" @onclick='() => SortAsync("sku")'>SKU</button></th>
+                            <th class="number-cell"><button class="table-sort" type="button" @onclick='() => SortAsync("stock")'>Estoque</button></th>
+                            <th class="number-cell"><button class="table-sort" type="button" @onclick='() => SortAsync("price")'>Preco</button></th>
+                            <th><button class="table-sort" type="button" @onclick='() => SortAsync("seller")'>Vendedor</button></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var product in products.Items)
+                        {
+                            <tr>
+                                <td class="actions-column">
+                                    <div class="action-cell">
+                                        <input type="checkbox" checked="@selectedIds.Contains(product.Id)" @onchange="args => ToggleSelection(product.Id, IsChecked(args))" />
+                                    </div>
+                                </td>
+                                <td>@product.Title</td>
+                                <td>@product.Sku</td>
+                                <td class="number-cell">@product.Stock</td>
+                                <td class="number-cell">@product.Price.ToString("C")</td>
+                                <td>@product.Seller</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="pagination-row admin-pagination">
+                <button class="btn btn-sm btn-outline-secondary" type="button" disabled="@(currentPage <= 1)" @onclick="PreviousAsync">Anterior</button>
+                <span>Pagina @currentPage de @TotalPages</span>
+                <button class="btn btn-sm btn-outline-secondary" type="button" disabled="@(currentPage >= TotalPages)" @onclick="NextAsync">Proxima</button>
+                <button class="btn btn-primary" type="button" @onclick="SaveAsync">Salvar relacoes</button>
+            </div>
+        </div>
+    }
+</section>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private bool loading = true;
+    private string? message;
+    private string productTitle = "Produto";
+    private AdminProductSearchResponse products = new([], 0, 1, 10);
+    private readonly List<int> selectedIds = [];
+    private readonly List<AdminProductSummary> selectedProducts = [];
+    private string search = string.Empty;
+    private string sort = "title";
+    private string direction = "asc";
+    private int currentPage = 1;
+    private int pageSize = 10;
+
+    private int TotalPages => Math.Max(1, (int)Math.Ceiling(products.Total / (double)pageSize));
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        var product = await Api.GetAdminProductAsync(Id);
+        if (product is null)
+        {
+            message = "Produto nao encontrado.";
+            loading = false;
+            return;
+        }
+
+        productTitle = product.Title;
+        selectedIds.Clear();
+        selectedIds.AddRange(product.SimilarProductIds);
+        await RefreshSelectedProductsAsync();
+        products = await Api.GetAdminProductsAsync(search, currentPage, pageSize, sort, direction) ?? new AdminProductSearchResponse([], 0, currentPage, pageSize);
+        products = products with { Items = products.Items.Where(item => item.Id != Id && !selectedIds.Contains(item.Id)).ToArray() };
+        loading = false;
+    }
+
+    private async Task RefreshSelectedProductsAsync()
+    {
+        selectedProducts.Clear();
+        if (selectedIds.Count == 0)
+        {
+            return;
+        }
+
+        var pageIndex = 1;
+        while (selectedProducts.Count < selectedIds.Count)
+        {
+            var response = await Api.GetAdminProductsAsync(null, pageIndex, 100, "title", "asc");
+            if (response is null || response.Items.Length == 0)
+            {
+                break;
+            }
+
+            foreach (var item in response.Items.Where(item => selectedIds.Contains(item.Id) && selectedProducts.All(existing => existing.Id != item.Id)))
+            {
+                selectedProducts.Add(item);
+            }
+
+            if (response.Items.Length < 100)
+            {
+                break;
+            }
+
+            pageIndex++;
+        }
+
+        selectedProducts.Sort((left, right) => string.Compare(left.Title, right.Title, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private async Task SearchAsync()
+    {
+        currentPage = 1;
+        await LoadAsync();
+    }
+
+    private async Task OnPageSizeChanged(ChangeEventArgs args)
+    {
+        if (int.TryParse(args.Value?.ToString(), out var value) && value > 0)
+        {
+            pageSize = value;
+        }
+
+        currentPage = 1;
+        await LoadAsync();
+    }
+
+    private async Task SortAsync(string column)
+    {
+        if (sort == column)
+        {
+            direction = direction == "asc" ? "desc" : "asc";
+        }
+        else
+        {
+            sort = column;
+            direction = "asc";
+        }
+
+        currentPage = 1;
+        await LoadAsync();
+    }
+
+    private async Task PreviousAsync()
+    {
+        currentPage--;
+        await LoadAsync();
+    }
+
+    private async Task NextAsync()
+    {
+        currentPage++;
+        await LoadAsync();
+    }
+
+    private void ToggleSelection(int productId, bool isSelected)
+    {
+        if (productId == Id)
+        {
+            return;
+        }
+
+        if (isSelected)
+        {
+            if (!selectedIds.Contains(productId))
+            {
+                selectedIds.Add(productId);
+            }
+        }
+        else
+        {
+            selectedIds.RemoveAll(item => item == productId);
+        }
+    }
+
+    private static bool IsChecked(ChangeEventArgs args) => args.Value switch
+    {
+        bool value => value,
+        string value => string.Equals(value, "true", StringComparison.OrdinalIgnoreCase) || string.Equals(value, "on", StringComparison.OrdinalIgnoreCase),
+        _ => false
+    };
+
+    private async Task SaveAsync()
+    {
+        try
+        {
+            await Api.SaveSimilarProductsAsync(Id, selectedIds.Distinct().ToArray());
+            message = "Relacionamentos salvos.";
+            await LoadAsync();
+        }
+        catch (HttpRequestException)
+        {
+            message = "Nao foi possivel salvar os produtos similares.";
+        }
+    }
+}

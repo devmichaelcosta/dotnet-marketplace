@@ -1,0 +1,117 @@
+@inject MarketplaceApiClient Api
+@inject NavigationManager Navigation
+
+@if (loading)
+{
+    <section class="admin-imports-shell">
+        <div class="admin-import-card">
+            <p>Carregando atributo...</p>
+        </div>
+    </section>
+}
+else
+{
+    <section class="admin-imports-shell admin-category-shell">
+        <div class="admin-imports-hero">
+            <div>
+                <span>Admin</span>
+                <h1>@(IsEditing ? "Editar atributo" : "Novo atributo")</h1>
+                <p>Informe os dados do atributo e clique em salvar.</p>
+                <nav class="nav-breadcrumb admin-breadcrumb">
+                    <span><a href="/admin/catalog">Catalogo</a></span>
+                    <span>@(IsEditing ? "Editar atributo" : "Novo atributo")</span>
+                </nav>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <p class="notice admin-import-notice @(successMessage ? "notice-success" : null)">@message</p>
+        }
+
+        <div class="admin-import-card">
+            <EditForm Model="form" OnValidSubmit="SaveAsync" FormName="attribute-form">
+                <DataAnnotationsValidator />
+
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label" for="name">Nome</label>
+                        <InputText id="name" class="form-control" @bind-Value="form.Name" />
+                    </div>
+
+                    <div class="col-12 d-flex gap-2 justify-content-end">
+                        <a class="btn btn-outline-secondary" href="/admin/catalog">Voltar</a>
+                        <button class="btn btn-primary" type="submit">Salvar atributo</button>
+                    </div>
+                </div>
+            </EditForm>
+        </div>
+    </section>
+}
+
+@code {
+    [Parameter]
+    public int? AttributeId { get; set; }
+
+    private bool loading = true;
+    private string? message;
+    private bool successMessage;
+    private AttributeForm form = new();
+
+    private bool IsEditing => AttributeId is not null;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        message = null;
+        successMessage = false;
+
+        if (AttributeId is not null)
+        {
+            var attributes = await Api.GetAdminAttributesAsync();
+            var attribute = attributes.FirstOrDefault(item => item.Id == AttributeId.Value);
+            if (attribute is null)
+            {
+                message = "Atributo nao encontrado.";
+                loading = false;
+                return;
+            }
+
+            form = new AttributeForm
+            {
+                Id = attribute.Id,
+                Name = attribute.Name
+            };
+        }
+        else
+        {
+            form = new AttributeForm();
+        }
+
+        loading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(form.Name))
+        {
+            message = "Informe o nome do atributo.";
+            successMessage = false;
+            return;
+        }
+
+        await Api.SaveAttributeAsync(new AdminAttributeRequest(form.Id, form.Name.Trim()));
+        Navigation.NavigateTo("/admin/catalog?saved=attribute");
+    }
+
+    private sealed class AttributeForm
+    {
+        public int? Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+}

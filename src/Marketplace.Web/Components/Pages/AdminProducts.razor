@@ -1,186 +1,179 @@
-@page "/admin/products"
+﻿@page "/admin/products"
+@attribute [Authorize(Roles = "admin,vendedor")]
 @rendermode InteractiveServer
-@using Microsoft.AspNetCore.Components.Forms
 @inject MarketplaceApiClient Api
-@inject ClientState State
+@inject NavigationManager Navigation
 
 <PageTitle>Produtos</PageTitle>
 
-<div class="toolbar">
-    <div>
-        <h1>Produtos</h1>
-        <p>Cadastro administrativo de produtos migrado para Blazor.</p>
-    </div>
-</div>
-
-@if (!State.IsAuthenticated)
+@if (loading)
 {
-    <p>Faca login como admin ou vendedor para acessar esta area.</p>
-}
-else if (loading)
-{
-    <p>Carregando produtos...</p>
+    <section class="admin-imports-shell">
+        <div class="admin-import-card">
+            <p>Carregando produtos...</p>
+        </div>
+    </section>
 }
 else
 {
-    @if (!string.IsNullOrWhiteSpace(message))
-    {
-        <p class="notice">@message</p>
-    }
+    <section class="admin-imports-shell">
+        <div class="admin-imports-hero">
+            <div>
+                <span>Admin</span>
+                <h1>Produtos</h1>
+                <p>Cadastro administrativo de produtos migrado para Blazor.</p>
+            </div>
+            <div>
+                <button class="btn btn-primary" type="button" @onclick="CreateProduct">Novo produto</button>
+            </div>
+        </div>
 
-    <section class="admin-grid product-admin-grid">
-        <EditForm Model="form" OnValidSubmit="SaveAsync" FormName="product-form" class="form-panel wide-form">
-            <DataAnnotationsValidator />
-            <h2>@(form.Id is null ? "Novo produto" : "Editar produto")</h2>
-            <label>
-                Titulo
-                <InputText class="form-control" @bind-Value="form.Title" />
-            </label>
-            <label>
-                Descricao
-                <InputTextArea class="form-control" @bind-Value="form.Description" />
-            </label>
-            <div class="checkout-grid compact-grid">
-                <label>
-                    Preco
-                    <InputNumber class="form-control" @bind-Value="form.Price" />
-                </label>
-                <label>
-                    Estoque
-                    <InputNumber class="form-control" @bind-Value="form.Stock" />
-                </label>
-                <label>
-                    SKU
-                    <InputText class="form-control" @bind-Value="form.Sku" />
-                </label>
-                <label>
-                    Subcategoria
-                    <InputSelect class="form-control" @bind-Value="form.SubCategoryId">
-                        <option value="">Sem subcategoria</option>
-                        @foreach (var subCategory in subCategories)
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <p class="notice admin-import-notice @(successMessage ? "notice-success" : null)">@message</p>
+        }
+
+        <div class="admin-import-card admin-table-card">
+            <div class="admin-table-header">
+                <div>
+                    <span class="admin-card-eyebrow">Lista</span>
+                    <h2>Produtos cadastrados</h2>
+                </div>
+                <span class="admin-total-pill">@products.Total registros</span>
+            </div>
+
+            <form class="admin-filter-bar" @onsubmit="SearchAsync" @onsubmit:preventDefault="true">
+                <input class="form-control" placeholder="Buscar por titulo, descricao ou SKU" @bind="search" @bind:event="oninput" />
+                <select class="form-control" value="@pageSize" @onchange="OnPageSizeChanged">
+                    <option value="10">10 por pagina</option>
+                    <option value="25">25 por pagina</option>
+                    <option value="50">50 por pagina</option>
+                </select>
+                <button class="btn btn-primary" type="submit">Buscar</button>
+            </form>
+
+            <div class="admin-table-scroll">
+                <table class="table admin-data-table">
+                    <thead>
+                        <tr>
+                            <th class="actions-column admin-product-actions"></th>
+                            <th><button class="table-sort" type="button" @onclick='() => SortAsync("title")'>Produto</button></th>
+                            <th><button class="table-sort" type="button" @onclick='() => SortAsync("sku")'>SKU</button></th>
+                            <th class="number-cell"><button class="table-sort" type="button" @onclick='() => SortAsync("stock")'>Estoque</button></th>
+                            <th class="number-cell"><button class="table-sort" type="button" @onclick='() => SortAsync("price")'>Preco</button></th>
+                            <th><button class="table-sort" type="button" @onclick='() => SortAsync("offer")'>Oferta</button></th>
+                            <th><button class="table-sort" type="button" @onclick='() => SortAsync("seller")'>Vendedor</button></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var product in products.Items)
                         {
-                            <option value="@subCategory.Id">@subCategory.Title</option>
+                            <tr>
+                                <td class="actions-column admin-product-actions">
+                                    <div class="action-cell">
+                                        <button class="btn btn-sm btn-outline-secondary icon-action" type="button" title="Editar" @onclick="() => EditProduct(product.Id)">
+                                            <i class="fa fa-pen"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger icon-action" type="button" title="Excluir" @onclick="() => DeleteAsync(product.Id)">
+                                            <i class="fa fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                                <td>@product.Title</td>
+                                <td>@product.Sku</td>
+                                <td class="number-cell">@product.Stock</td>
+                                <td class="number-cell">@product.Price.ToString("C")</td>
+                                <td>@(product.Offer ? "Sim" : "Nao")</td>
+                                <td>@product.Seller</td>
+                            </tr>
                         }
-                    </InputSelect>
-                </label>
+                    </tbody>
+                </table>
             </div>
-            <label class="form-check-row">
-                <InputCheckbox class="form-check-input" @bind-Value="form.Offer" />
-                Produto em oferta
-            </label>
-            <label>
-                Imagens
-                <InputTextArea class="form-control" @bind-Value="form.ImagesText" />
-            </label>
-            <InputFile OnChange="UploadProductImageAsync" accept="image/*" />
-            <label>
-                Atributos
-                <InputTextArea class="form-control" @bind-Value="form.AttributesText" />
-            </label>
-            <div class="reference-list">
-                @foreach (var catalogAttribute in attributes)
-                {
-                    <span>@catalogAttribute.Id=@catalogAttribute.Name</span>
-                }
-            </div>
-            <label>
-                Produtos similares
-                <InputText class="form-control" placeholder="1,2,3" @bind-Value="form.SimilarProductsText" />
-            </label>
-            <div class="form-actions">
-                <button class="btn btn-primary" type="submit">Salvar</button>
-                <button class="btn btn-outline-secondary" type="button" @onclick="ResetForm">Limpar</button>
-            </div>
-        </EditForm>
 
-        <div class="table-panel">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Produto</th>
-                        <th>SKU</th>
-                        <th>Estoque</th>
-                        <th>Preco</th>
-                        <th>Vendedor</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var product in products?.Items ?? [])
-                    {
-                    <tr>
-                        <td>@product.Title</td>
-                        <td>@product.Sku</td>
-                        <td>@product.Stock</td>
-                        <td>@product.Price.ToString("C")</td>
-                        <td>@product.Seller</td>
-                        <td class="table-actions">
-                            <button class="btn btn-sm btn-outline-secondary" @onclick="() => EditAsync(product.Id)">Editar</button>
-                            <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(product.Id)">Excluir</button>
-                        </td>
-                    </tr>
-                    }
-                </tbody>
-            </table>
+            <div class="pagination-row admin-pagination">
+                <button class="btn btn-sm btn-outline-secondary" type="button" disabled="@(currentPage <= 1)" @onclick="PreviousAsync">Anterior</button>
+                <span>Pagina @currentPage de @TotalPages</span>
+                <button class="btn btn-sm btn-outline-secondary" type="button" disabled="@(currentPage >= TotalPages)" @onclick="NextAsync">Proxima</button>
+            </div>
         </div>
     </section>
 }
 
 @code {
-    private AdminProductSearchResponse? products;
-    private AdminSubCategory[] subCategories = [];
-    private AdminAttribute[] attributes = [];
-    private ProductForm form = new();
+    private AdminProductSearchResponse products = new([], 0, 1, 10);
     private bool loading;
     private string? message;
+    private bool successMessage;
+    private string search = string.Empty;
+    private string sort = "title";
+    private string direction = "asc";
+    private int currentPage = 1;
+    private int pageSize = 10;
+
+    private int TotalPages => Math.Max(1, (int)Math.Ceiling(products.Total / (double)pageSize));
 
     protected override async Task OnInitializedAsync()
     {
-        if (State.IsAuthenticated)
+        if (Navigation.Uri.Contains("saved=edited", StringComparison.OrdinalIgnoreCase))
         {
-            await LoadAsync();
+            message = "Produto editado com sucesso.";
+            successMessage = true;
         }
+
+        await LoadAsync();
     }
 
     private async Task LoadAsync()
     {
         loading = true;
-        products = await Api.GetAdminProductsAsync();
-        subCategories = await Api.GetAdminSubCategoriesAsync();
-        attributes = await Api.GetAdminAttributesAsync();
+        products = await Api.GetAdminProductsAsync(search, currentPage, pageSize, sort, direction) ?? new AdminProductSearchResponse([], 0, currentPage, pageSize);
         loading = false;
     }
 
-    private async Task SaveAsync()
+    private async Task SearchAsync()
     {
-        if (string.IsNullOrWhiteSpace(form.Title) || string.IsNullOrWhiteSpace(form.Description) || string.IsNullOrWhiteSpace(form.Sku))
-        {
-            message = "Informe titulo, descricao e SKU.";
-            return;
-        }
-
-        var productId = await Api.SaveProductAsync(form.ToRequest());
-        var id = form.Id ?? productId;
-        if (id is not null)
-        {
-            await Api.SaveSimilarProductsAsync(id.Value, form.SimilarProductIds());
-        }
-
-        message = "Produto salvo.";
-        ResetForm();
+        currentPage = 1;
         await LoadAsync();
     }
 
-    private async Task EditAsync(int id)
+    private async Task OnPageSizeChanged(ChangeEventArgs args)
     {
-        var product = await Api.GetAdminProductAsync(id);
-        if (product is null)
+        if (int.TryParse(args.Value?.ToString(), out var value) && value > 0)
         {
-            message = "Produto nao encontrado.";
-            return;
+            pageSize = value;
         }
 
-        form = ProductForm.From(product, attributes);
+        currentPage = 1;
+        await LoadAsync();
+    }
+
+    private async Task SortAsync(string column)
+    {
+        if (sort == column)
+        {
+            direction = direction == "asc" ? "desc" : "asc";
+        }
+        else
+        {
+            sort = column;
+            direction = "asc";
+        }
+
+        currentPage = 1;
+        await LoadAsync();
+    }
+
+    private async Task PreviousAsync()
+    {
+        currentPage--;
+        await LoadAsync();
+    }
+
+    private async Task NextAsync()
+    {
+        currentPage++;
+        await LoadAsync();
     }
 
     private async Task DeleteAsync(int id)
@@ -190,91 +183,6 @@ else
         await LoadAsync();
     }
 
-    private async Task UploadProductImageAsync(InputFileChangeEventArgs args)
-    {
-        var result = await Api.UploadImageAsync("products", args.File);
-        if (result is null)
-        {
-            message = "Nao foi possivel enviar a imagem.";
-            return;
-        }
-
-        form.ImagesText = string.IsNullOrWhiteSpace(form.ImagesText)
-            ? result.Url
-            : $"{form.ImagesText}{Environment.NewLine}{result.Url}";
-        message = "Imagem enviada.";
-    }
-
-    private void ResetForm()
-    {
-        form = new ProductForm();
-    }
-
-    private sealed class ProductForm
-    {
-        public int? Id { get; set; }
-        public int? SubCategoryId { get; set; }
-        public string Title { get; set; } = string.Empty;
-        public string Description { get; set; } = string.Empty;
-        public decimal Price { get; set; }
-        public int Stock { get; set; }
-        public bool Offer { get; set; }
-        public string Sku { get; set; } = string.Empty;
-        public string ImagesText { get; set; } = string.Empty;
-        public string AttributesText { get; set; } = string.Empty;
-        public string SimilarProductsText { get; set; } = string.Empty;
-
-        public AdminProductRequest ToRequest() =>
-            new(
-                Id,
-                null,
-                SubCategoryId,
-                Title.Trim(),
-                Description.Trim(),
-                Price,
-                Stock,
-                Offer,
-                Sku.Trim(),
-                Lines(ImagesText),
-                AttributeLines(AttributesText));
-
-        public int[] SimilarProductIds() =>
-            SimilarProductsText
-                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Where(value => int.TryParse(value, out _))
-                .Select(int.Parse)
-                .Distinct()
-                .ToArray();
-
-        public static ProductForm From(AdminProductDetails product, AdminAttribute[] knownAttributes) =>
-            new()
-            {
-                Id = product.Id,
-                SubCategoryId = product.SubCategoryId,
-                Title = product.Title,
-                Description = product.Description,
-                Price = product.Price,
-                Stock = product.Stock,
-                Offer = product.Offer,
-                Sku = product.Sku,
-                ImagesText = string.Join(Environment.NewLine, product.Images),
-                SimilarProductsText = string.Join(",", product.SimilarProductIds),
-                AttributesText = string.Join(
-                    Environment.NewLine,
-                    product.Attributes.Select(item =>
-                    {
-                        return $"{item.AttributeId}={item.Value}";
-                    }))
-            };
-
-        private static string[] Lines(string value) =>
-            value.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-        private static ProductAttributeValueRequest[] AttributeLines(string value) =>
-            Lines(value)
-                .Select(line => line.Split('=', 2, StringSplitOptions.TrimEntries))
-                .Where(parts => parts.Length == 2 && int.TryParse(parts[0], out _))
-                .Select(parts => new ProductAttributeValueRequest(int.Parse(parts[0]), parts[1]))
-                .ToArray();
-    }
+    private void CreateProduct() => Navigation.NavigateTo("/admin/products/create");
+    private void EditProduct(int id) => Navigation.NavigateTo($"/admin/products/{id}/edit");
 }

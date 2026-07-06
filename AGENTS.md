@@ -283,3 +283,11 @@ Uma implementaÃ§Ã£o sÃ³ deve ser considerada concluÃ­da quando:
 * possuir cÃ³digo legÃ­vel e sustentÃ¡vel.
 
 Qualidade arquitetural possui prioridade sobre velocidade de implementaÃ§Ã£o.
+
+---
+
+## Regras de UI admin
+
+* Listagens administrativas devem usar tabela no estilo datatable com busca e ordenação.
+* Busca em telas administrativas deve funcionar ao pressionar `Enter`.
+* Botões de ação devem privilegiar ícones e ocupar o menor espaço possível.

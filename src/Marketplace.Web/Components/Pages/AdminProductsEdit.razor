@@ -1,0 +1,12 @@
+@page "/admin/products/{Id:int}/edit"
+@attribute [Authorize(Roles = "admin,vendedor")]
+@rendermode InteractiveServer
+
+<PageTitle>Editar produto</PageTitle>
+
+<AdminProductEditor ProductId="Id" />
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+}

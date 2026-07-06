@@ -1,0 +1,10 @@
+@page "/admin/catalog/attributes/{Id:int}/edit"
+@attribute [Authorize(Roles = "admin")]
+@rendermode InteractiveServer
+
+<AdminAttributeEditor AttributeId="@Id" />
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+}

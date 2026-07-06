@@ -1,0 +1,132 @@
+@using System.Linq
+@inject MarketplaceApiClient Api
+@inject NavigationManager Navigation
+
+@if (loading)
+{
+    <section class="admin-imports-shell">
+        <div class="admin-import-card">
+            <p>Carregando subcategoria...</p>
+        </div>
+    </section>
+}
+else
+{
+    <section class="admin-imports-shell admin-category-shell">
+        <div class="admin-imports-hero">
+            <div>
+                <span>Admin</span>
+                <h1>@(IsEditing ? "Editar subcategoria" : "Nova subcategoria")</h1>
+                <p>Informe os dados da subcategoria e clique em salvar.</p>
+                <nav class="nav-breadcrumb admin-breadcrumb">
+                    <span><a href="/admin/catalog">Catalogo</a></span>
+                    <span>@(IsEditing ? "Editar subcategoria" : "Nova subcategoria")</span>
+                </nav>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <p class="notice admin-import-notice @(successMessage ? "notice-success" : null)">@message</p>
+        }
+
+        <div class="admin-import-card">
+            <EditForm Model="form" OnValidSubmit="SaveAsync" FormName="subcategory-form">
+                <DataAnnotationsValidator />
+
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label" for="categoryId">Categoria</label>
+                        <InputSelect id="categoryId" class="form-control" @bind-Value="form.CategoryId">
+                            @foreach (var category in categories)
+                            {
+                                <option value="@category.Id">@category.Title</option>
+                            }
+                        </InputSelect>
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label" for="title">Titulo</label>
+                        <InputText id="title" class="form-control" @bind-Value="form.Title" />
+                    </div>
+
+                    <div class="col-12 d-flex gap-2 justify-content-end">
+                        <a class="btn btn-outline-secondary" href="/admin/catalog">Voltar</a>
+                        <button class="btn btn-primary" type="submit">Salvar subcategoria</button>
+                    </div>
+                </div>
+            </EditForm>
+        </div>
+    </section>
+}
+
+@code {
+    [Parameter]
+    public int? SubCategoryId { get; set; }
+
+    private bool loading = true;
+    private string? message;
+    private bool successMessage;
+    private AdminCategory[] categories = [];
+    private SubCategoryForm form = new();
+
+    private bool IsEditing => SubCategoryId is not null;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        message = null;
+        successMessage = false;
+
+        categories = await Api.GetAdminCategoriesAsync();
+        if (SubCategoryId is not null)
+        {
+            var items = await Api.GetAdminSubCategoriesAsync();
+            var subCategory = items.FirstOrDefault(item => item.Id == SubCategoryId.Value);
+            if (subCategory is null)
+            {
+                message = "Subcategoria nao encontrada.";
+                loading = false;
+                return;
+            }
+
+            form = new SubCategoryForm
+            {
+                Id = subCategory.Id,
+                CategoryId = subCategory.CategoryId,
+                Title = subCategory.Title
+            };
+        }
+        else
+        {
+            form = new SubCategoryForm { CategoryId = categories.FirstOrDefault()?.Id ?? 0 };
+        }
+
+        loading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(form.Title))
+        {
+            message = "Informe o titulo da subcategoria.";
+            successMessage = false;
+            return;
+        }
+
+        await Api.SaveSubCategoryAsync(new AdminSubCategoryRequest(form.Id, form.CategoryId, form.Title.Trim()));
+        Navigation.NavigateTo("/admin/catalog?saved=subcategory");
+    }
+
+    private sealed class SubCategoryForm
+    {
+        public int? Id { get; set; }
+        public int CategoryId { get; set; }
+        public string Title { get; set; } = string.Empty;
+    }
+}

@@ -1,0 +1,624 @@
+﻿@using System.Linq
+@implements IDisposable
+@inject MarketplaceApiClient Api
+@inject ClientState State
+@inject NavigationManager Navigation
+
+@if (loading)
+{
+    <section class="admin-imports-shell">
+        <div class="admin-import-card">
+            <p>Carregando produto...</p>
+        </div>
+    </section>
+}
+else
+{
+    <section class="admin-imports-shell admin-product-shell">
+        <div class="admin-imports-hero">
+            <div>
+                <span>Admin</span>
+                <h1>@(IsEditing ? "Editar produto" : "Cadastrar produto")</h1>
+                <p>Informe os dados do produto e clique em salvar.</p>
+                <nav class="nav-breadcrumb admin-breadcrumb">
+                    <span><a href="/admin/products">Produto</a></span>
+                    <span>@(IsEditing ? "Editar" : "Cadastrar")</span>
+                </nav>
+            </div>
+            @if (IsEditing)
+            {
+                <div>
+                    <a class="btn btn-outline-secondary" href="@($"/admin/products/{ProductId}/similar")">
+                        <i class="fa fa-clone"></i> Produtos similares
+                    </a>
+                </div>
+            }
+
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <p class="notice admin-import-notice">@message</p>
+        }
+
+        <div class="admin-import-card admin-product-card">
+            <EditForm Model="form" OnValidSubmit="SaveAsync" FormName="product-form">
+                <DataAnnotationsValidator />
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label" for="title">Titulo</label>
+                        <InputText id="title" class="form-control" @bind-Value="form.Title" />
+                    </div>
+
+                    @if (State.IsAdmin)
+                    {
+                        <div class="col-md-3">
+                            <label class="form-label" for="userId">Vendedor</label>
+                            <select id="userId" class="form-control" value="@form.UserId?.ToString()" @onchange="OnSellerChanged">
+                                <option value="">Selecione o vendedor...</option>
+                                @foreach (var seller in sellers)
+                                {
+                                    <option value="@seller.UserId">@seller.Name</option>
+                                }
+                            </select>
+                        </div>
+                    }
+
+                    <div class="col-md-3">
+                        <label class="form-label" for="price">Preco a vista</label>
+                        <InputNumber id="price" class="form-control" @bind-Value="form.Price" />
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label" for="sku">SKU</label>
+                        <InputText id="sku" class="form-control" @bind-Value="form.Sku" />
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label" for="stock">Estoque</label>
+                        <InputNumber id="stock" class="form-control" @bind-Value="form.Stock" />
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label d-block">Oferta</label>
+                        <div class="btn-group" role="group" aria-label="Oferta do produto">
+                            <input class="btn-check" type="radio" name="offer" id="offerYes" checked="@form.Offer" @onchange="() => form.Offer = true" />
+                            <label class="btn btn-outline-secondary" for="offerYes">Sim</label>
+                            <input class="btn-check" type="radio" name="offer" id="offerNo" checked="@(!form.Offer)" @onchange="() => form.Offer = false" />
+                            <label class="btn btn-outline-secondary" for="offerNo">Nao</label>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label" for="categoryId">Categoria</label>
+                        <select id="categoryId" class="form-control" value="@form.CategoryId?.ToString()" @onchange="OnCategoryChanged">
+                            <option value="">Selecione</option>
+                            @foreach (var category in categories)
+                            {
+                                <option value="@category.Id">@category.Title</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label" for="subCategoryId">Subcategoria</label>
+                        <select id="subCategoryId" class="form-control" value="@form.SubCategoryId?.ToString()" @onchange="OnSubCategoryChanged" disabled="@(!AvailableSubCategories.Any())">
+                            <option value="">Selecione</option>
+                            @foreach (var subCategory in AvailableSubCategories)
+                            {
+                                <option value="@subCategory.Id">@subCategory.Title</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label" for="description">Descricao</label>
+                        <InputTextArea id="description" class="form-control" style="min-height:150px;" @bind-Value="form.Description" />
+                    </div>
+
+                    <div class="col-12">
+                        <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                            <label class="form-label mb-0">Imagens atuais</label>
+                            <span class="text-muted">@form.Images.Count imagem(ns)</span>
+                        </div>
+
+                        @if (form.Images.Count == 0)
+                        {
+                            <div class="alert alert-info mb-0">Nenhuma imagem adicionada.</div>
+                        }
+                        else
+                        {
+                            <div class="row g-3">
+                                @foreach (var image in form.Images)
+                                {
+                                    <div class="col-6 col-md-3">
+                                        <div class="admin-product-image-card">
+                                            <img src="@ProductImageUrl(image)" alt="@form.Title" class="img-fluid" />
+                                            <button type="button" class="btn btn-danger btn-sm" @onclick="() => RemoveImage(image)">
+                                                <i class="fa fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label">Enviar imagens</label>
+                        <InputFile OnChange="UploadImagesAsync" multiple accept="image/*" />
+                    </div>
+
+                    <div class="col-12">
+                        <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                            <label class="form-label mb-0">Ficha tecnica</label>
+                            <button type="button" class="btn btn-dark btn-sm" @onclick="OpenAttributeModal">
+                                <i class="fa fa-plus"></i> Adicionar atributo
+                            </button>
+                        </div>
+
+                        @if (form.Attributes.Count == 0)
+                        {
+                            <div class="alert alert-info">Nenhum atributo foi selecionado.</div>
+                        }
+                        else
+                        {
+                            <div class="admin-table-scroll">
+                                <table class="table admin-data-table admin-attributes-table">
+                                    <thead>
+                                        <tr>
+                                            <th></th>
+                                            <th>Atributo</th>
+                                            <th>Valor</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @for (var index = 0; index < form.Attributes.Count; index++)
+                                        {
+                                            var rowIndex = index;
+                                            <tr>
+                                                <td class="actions-column">
+                                                    <div class="action-cell">
+                                                        <button type="button" class="btn btn-outline-danger btn-sm icon-action" aria-label="Remover atributo" @onclick="() => RemoveAttributeRow(rowIndex)">
+                                                            <i class="fa fa-trash"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                                <td>@AttributeNameFor(form.Attributes[rowIndex].AttributeId)</td>
+                                                <td>
+                                                    <InputText class="form-control" @bind-Value="form.Attributes[rowIndex].Value" />
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="col-12 d-flex gap-2 justify-content-end">
+                        <a class="btn btn-outline-secondary" href="/admin/products">Voltar</a>
+                        <button type="submit" class="btn btn-primary">Salvar produto</button>
+                    </div>
+                </div>
+            </EditForm>
+        </div>
+    </section>
+}
+
+@if (attributeModalOpen)
+{
+    <div class="admin-modal-backdrop" role="presentation">
+        <div class="admin-modal" role="dialog" aria-modal="true" aria-labelledby="attribute-modal-title">
+            <div class="admin-modal-header">
+                <div>
+                    <span class="admin-card-eyebrow">Atributos</span>
+                    <h2 id="attribute-modal-title">Selecionar atributos disponiveis</h2>
+                </div>
+                <button class="btn btn-outline-secondary btn-sm" type="button" @onclick="CloseAttributeModal">Fechar</button>
+            </div>
+
+            <div class="admin-filter-bar admin-modal-filter-bar">
+                <input class="form-control" placeholder="Buscar atributo" @bind="attributeSearch" @bind:event="oninput" />
+                <select class="form-control" @bind="attributeSort">
+                    <option value="name">Nome</option>
+                    <option value="id">ID</option>
+                </select>
+                <button class="btn btn-outline-secondary" type="button" @onclick="ToggleAttributeDirection">
+                    @(attributeDirection == "asc" ? "Asc" : "Desc")
+                </button>
+            </div>
+
+            <div class="admin-table-scroll admin-modal-table">
+                <table class="table admin-data-table admin-data-table-compact">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th><button class="table-sort" type="button" @onclick='() => SortAttributes("id")'>ID</button></th>
+                            <th><button class="table-sort" type="button" @onclick='() => SortAttributes("name")'>Nome</button></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var catalogAttribute in PagedModalAttributes)
+                        {
+                            <tr>
+                                <td class="actions-column">
+                                    <div class="action-cell">
+                                        <input type="checkbox"
+                                               checked="@modalSelectedAttributeIds.Contains(catalogAttribute.Id)"
+                                               @onchange="args => ToggleModalAttributeSelection(catalogAttribute.Id, args)" />
+                                    </div>
+                                </td>
+                                <td>@catalogAttribute.Id</td>
+                                <td>@catalogAttribute.Name</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="pagination-row admin-pagination admin-modal-footer">
+                <button class="btn btn-sm btn-outline-secondary" type="button" disabled="@(attributePage <= 1)" @onclick="PreviousAttributePage">Anterior</button>
+                <span>Pagina @attributePage de @TotalAttributePages</span>
+                <button class="btn btn-sm btn-outline-secondary" type="button" disabled="@(attributePage >= TotalAttributePages)" @onclick="NextAttributePage">Proxima</button>
+                <button class="btn btn-primary" type="button" @onclick="AddSelectedAttributes">Adicionar selecionados (@modalSelectedAttributeIds.Count)</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int? ProductId { get; set; }
+
+    private bool loading = true;
+    private string? message;
+    private AdminCategory[] categories = [];
+    private AdminSeller[] sellers = [];
+    private AdminAttribute[] attributes = [];
+    private ProductEditorForm form = ProductEditorForm.Create();
+
+    private bool attributeModalOpen;
+    private string attributeSearch = string.Empty;
+    private string attributeSort = "name";
+    private string attributeDirection = "asc";
+    private int attributePage = 1;
+    private const int AttributePageSize = 10;
+    private readonly List<int> modalSelectedAttributeIds = [];
+
+    private bool IsEditing => ProductId is not null;
+    private IEnumerable<SubCategoryChoice> AvailableSubCategories =>
+        form.CategoryId is null
+            ? []
+            : categories.Where(category => category.Id == form.CategoryId)
+                .SelectMany(category => category.SubCategories.Select(subCategory => new SubCategoryChoice(subCategory.Id, category.Id, subCategory.Title, category.Title)));
+
+    private IEnumerable<AdminAttribute> AvailableModalAttributes =>
+        ApplyModalAttributeSort(attributes
+            .Where(attribute => !form.Attributes.Any(item => item.AttributeId == attribute.Id))
+            .Where(attribute => string.IsNullOrWhiteSpace(attributeSearch) || attribute.Name.Contains(attributeSearch, StringComparison.OrdinalIgnoreCase) || attribute.Id.ToString().Contains(attributeSearch, StringComparison.OrdinalIgnoreCase)));
+
+    private IEnumerable<AdminAttribute> PagedModalAttributes =>
+        AvailableModalAttributes
+            .Skip((attributePage - 1) * AttributePageSize)
+            .Take(AttributePageSize);
+
+    private int TotalAttributePages => Math.Max(1, (int)Math.Ceiling(AvailableModalAttributes.Count() / (double)AttributePageSize));
+
+    protected override async Task OnParametersSetAsync()
+    {
+        State.Changed -= OnStateChanged;
+        State.Changed += OnStateChanged;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        message = null;
+        categories = await Api.GetAdminCategoriesAsync();
+        sellers = State.IsAdmin ? await Api.GetAdminSellersAsync() : [];
+        attributes = await Api.GetAdminAttributesAsync();
+        form = ProductEditorForm.Create();
+
+        if (ProductId is not null)
+        {
+            var product = await Api.GetAdminProductAsync(ProductId.Value);
+            if (product is null)
+            {
+                message = "Produto nao encontrado.";
+                loading = false;
+                return;
+            }
+
+            form = ProductEditorForm.From(product, categories);
+        }
+
+        loading = false;
+    }
+
+
+    private void OnStateChanged()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            await LoadAsync();
+            StateHasChanged();
+        });
+    }
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(form.Title) || string.IsNullOrWhiteSpace(form.Description) || string.IsNullOrWhiteSpace(form.Sku))
+        {
+            message = "Informe titulo, descricao e SKU.";
+            return;
+        }
+
+        if (form.SubCategoryId is null)
+        {
+            message = "Selecione uma categoria e subcategoria.";
+            return;
+        }
+
+        if (State.IsAdmin && form.UserId is null)
+        {
+            message = "Selecione o vendedor.";
+            return;
+        }
+
+        var request = new AdminProductRequest(
+            form.Id,
+            State.IsAdmin ? form.UserId : null,
+            form.SubCategoryId,
+            form.Title.Trim(),
+            form.Description.Trim(),
+            form.Price,
+            form.Stock,
+            form.Offer,
+            form.Sku.Trim(),
+            form.Images.ToArray(),
+            form.Attributes
+                .Where(item => item.AttributeId is not null && !string.IsNullOrWhiteSpace(item.Value))
+                .Select(item => new ProductAttributeValueRequest(item.AttributeId!.Value, item.Value.Trim()))
+                .ToArray());
+
+        try
+        {
+            var savedId = await Api.SaveProductAsync(request);
+            var productId = form.Id ?? savedId;
+            if (productId is null)
+            {
+                message = "Nao foi possivel salvar o produto.";
+                return;
+            }
+
+            if (form.Id is null)
+            {
+                Navigation.NavigateTo($"/admin/products/{productId.Value}/edit");
+                return;
+            }
+
+            Navigation.NavigateTo("/admin/products?saved=edited");
+        }
+        catch (HttpRequestException)
+        {
+            message = "Nao foi possivel salvar o produto. Verifique sua autenticacao.";
+        }
+    }
+
+    private void OpenAttributeModal()
+    {
+        attributeModalOpen = true;
+        attributeSearch = string.Empty;
+        attributeSort = "name";
+        attributeDirection = "asc";
+        attributePage = 1;
+        modalSelectedAttributeIds.Clear();
+    }
+
+    private void CloseAttributeModal() => attributeModalOpen = false;
+
+    private void ToggleModalAttributeSelection(int attributeId, ChangeEventArgs args)
+    {
+        var checkedValue = args.Value switch
+        {
+            bool value => value,
+            string value => string.Equals(value, "true", StringComparison.OrdinalIgnoreCase) || string.Equals(value, "on", StringComparison.OrdinalIgnoreCase),
+            _ => false
+        };
+
+        if (checkedValue)
+        {
+            if (!modalSelectedAttributeIds.Contains(attributeId))
+            {
+                modalSelectedAttributeIds.Add(attributeId);
+            }
+
+            return;
+        }
+
+        modalSelectedAttributeIds.RemoveAll(item => item == attributeId);
+    }
+
+    private void AddSelectedAttributes()
+    {
+        foreach (var attributeId in modalSelectedAttributeIds.Distinct())
+        {
+            if (form.Attributes.Any(item => item.AttributeId == attributeId))
+            {
+                continue;
+            }
+
+            form.Attributes.Add(new ProductAttributeLine
+            {
+                AttributeId = attributeId
+            });
+        }
+
+        attributeModalOpen = false;
+        modalSelectedAttributeIds.Clear();
+    }
+
+    private async Task UploadImagesAsync(InputFileChangeEventArgs args)
+    {
+        foreach (var file in args.GetMultipleFiles())
+        {
+            var result = await Api.UploadImageAsync("products", file);
+            if (result is null)
+            {
+                message = "Nao foi possivel enviar a imagem.";
+                continue;
+            }
+
+            if (!form.Images.Contains(result.FileName))
+            {
+                form.Images.Add(result.FileName);
+            }
+
+            message = "Imagem enviada.";
+        }
+    }
+
+    private async Task RemoveImage(string image)
+    {
+        if (form.Id is not null)
+        {
+            await Api.DeleteProductImageAsync(form.Id.Value, image);
+        }
+
+        form.Images.Remove(image);
+    }
+
+    private void OnCategoryChanged(ChangeEventArgs args)
+    {
+        form.CategoryId = ParseInt(args.Value?.ToString());
+        if (form.SubCategoryId is not null && !AvailableSubCategories.Any(item => item.Id == form.SubCategoryId))
+        {
+            form.SubCategoryId = null;
+        }
+    }
+
+    private void OnSubCategoryChanged(ChangeEventArgs args) => form.SubCategoryId = ParseInt(args.Value?.ToString());
+    private void OnSellerChanged(ChangeEventArgs args) => form.UserId = ParseGuid(args.Value?.ToString());
+
+    private void RemoveAttributeRow(int index)
+    {
+        if (index >= 0 && index < form.Attributes.Count)
+        {
+            form.Attributes.RemoveAt(index);
+        }
+    }
+
+    private void SortAttributes(string sort)
+    {
+        if (attributeSort == sort)
+        {
+            attributeDirection = attributeDirection == "asc" ? "desc" : "asc";
+            return;
+        }
+
+        attributeSort = sort;
+        attributeDirection = "asc";
+    }
+
+    private void ToggleAttributeDirection() =>
+        attributeDirection = attributeDirection == "asc" ? "desc" : "asc";
+
+    private void PreviousAttributePage()
+    {
+        attributePage--;
+    }
+
+    private void NextAttributePage()
+    {
+        attributePage++;
+    }
+
+    private IEnumerable<AdminAttribute> ApplyModalAttributeSort(IEnumerable<AdminAttribute> source) =>
+        attributeSort switch
+        {
+            "id" when attributeDirection == "desc" => source.OrderByDescending(item => item.Id),
+            "id" => source.OrderBy(item => item.Id),
+            "name" when attributeDirection == "desc" => source.OrderByDescending(item => item.Name),
+            _ => source.OrderBy(item => item.Name)
+        };
+
+    private string AttributeNameFor(int? attributeId) =>
+        attributeId is null
+            ? "-"
+            : attributes.FirstOrDefault(item => item.Id == attributeId)?.Name ?? $"#{attributeId}";
+
+    private string ProductImageUrl(string fileName) =>
+        Api.AssetUrl($"/uploads/products/{fileName}");
+
+
+    private static int? ParseInt(string? value) => int.TryParse(value, out var result) ? result : null;
+    private static Guid? ParseGuid(string? value) => Guid.TryParse(value, out var result) ? result : null;
+
+    private sealed class ProductEditorForm
+    {
+        public int? Id { get; set; }
+        public Guid? UserId { get; set; }
+        public int? CategoryId { get; set; }
+        public int? SubCategoryId { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public decimal Price { get; set; }
+        public int Stock { get; set; }
+        public bool Offer { get; set; } = true;
+        public string Sku { get; set; } = string.Empty;
+        public List<string> Images { get; set; } = [];
+        public List<ProductAttributeLine> Attributes { get; set; } = [];
+
+        public static ProductEditorForm Create() => new();
+
+        public static ProductEditorForm From(AdminProductDetails product, AdminCategory[] categories) =>
+            new()
+            {
+                Id = product.Id,
+                UserId = product.UserId,
+                CategoryId = ResolveCategoryId(product.SubCategoryId, categories),
+                SubCategoryId = product.SubCategoryId,
+                Title = product.Title,
+                Description = product.Description,
+                Price = product.Price,
+                Stock = product.Stock,
+                Offer = product.Offer,
+                Sku = product.Sku,
+                Images = product.Images.ToList(),
+                Attributes = product.Attributes.Select(item => new ProductAttributeLine
+                {
+                    AttributeId = item.AttributeId,
+                    Value = item.Value
+                }).ToList()
+            };
+
+        private static int? ResolveCategoryId(int? subCategoryId, AdminCategory[] categories)
+        {
+            if (subCategoryId is null)
+            {
+                return null;
+            }
+
+            return categories
+                .FirstOrDefault(category => category.SubCategories.Any(subCategory => subCategory.Id == subCategoryId))
+                ?.Id;
+        }
+    }
+
+    private sealed class ProductAttributeLine
+    {
+        public int? AttributeId { get; set; }
+        public string Value { get; set; } = string.Empty;
+    }
+
+    private sealed record SubCategoryChoice(int Id, int CategoryId, string Title, string Category);
+
+    public void Dispose()
+    {
+        State.Changed -= OnStateChanged;
+    }
+}
+

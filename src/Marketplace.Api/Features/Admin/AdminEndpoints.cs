@@ -95,16 +95,6 @@ public static class AdminEndpoints
                 return Results.ValidationProblem(updateResult.Errors.ToDictionary(error => error.Code, error => new[] { error.Description }));
             }
 
-            if (!string.IsNullOrWhiteSpace(request.Password))
-            {
-                var token = await userManager.GeneratePasswordResetTokenAsync(user);
-                var passwordResult = await userManager.ResetPasswordAsync(user, token, request.Password);
-                if (!passwordResult.Succeeded)
-                {
-                    return Results.ValidationProblem(passwordResult.Errors.ToDictionary(error => error.Code, error => new[] { error.Description }));
-                }
-            }
-
             var currentRoles = await userManager.GetRolesAsync(user);
             if (currentRoles.Count > 0)
             {
@@ -114,6 +104,30 @@ public static class AdminEndpoints
             var role = NormalizeRole(request.Role);
             await userManager.AddToRoleAsync(user, role);
             return Results.Ok(UserResponse.From(user, [role]));
+        });
+
+        group.MapPost("/{id:guid}/reset-password", async (Guid id, ResetPasswordRequest request, UserManager<ApplicationUser> userManager) =>
+        {
+            var validationErrors = AdminPasswordResetPolicy.Validate(request);
+            if (validationErrors.Count > 0)
+            {
+                return Results.ValidationProblem(validationErrors);
+            }
+
+            var user = await userManager.FindByIdAsync(id.ToString());
+            if (user is null)
+            {
+                return Results.NotFound();
+            }
+
+            var token = await userManager.GeneratePasswordResetTokenAsync(user);
+            var passwordResult = await userManager.ResetPasswordAsync(user, token, request.Password);
+            if (!passwordResult.Succeeded)
+            {
+                return Results.ValidationProblem(passwordResult.Errors.ToDictionary(error => error.Code, error => new[] { error.Description }));
+            }
+
+            return Results.NoContent();
         });
 
         group.MapDelete("/{id:guid}", async (Guid id, UserManager<ApplicationUser> userManager) =>
@@ -526,6 +540,7 @@ public sealed record UserResponse(Guid Id, string Login, string Name, string Las
 }
 
 public sealed record UserRequest(string Name, string LastName, string Login, string? Password, string? Cpf, string Role);
+public sealed record ResetPasswordRequest(string Password);
 
 public sealed record SellerResponse(
     Guid Id,
@@ -586,6 +601,23 @@ public sealed record AttributeRequest(string Name);
 public sealed record CarouselResponse(int Id, string FileName, int SortOrder);
 public sealed record CarouselRequest(string FileName, int SortOrder);
 public sealed record UploadResponse(string FileName, string Url);
+
+public static class AdminPasswordResetPolicy
+{
+    public const string RequiredRole = MarketplaceSeed.AdminRole;
+
+    public static Dictionary<string, string[]> Validate(ResetPasswordRequest request)
+    {
+        var errors = new Dictionary<string, string[]>();
+        if (string.IsNullOrWhiteSpace(request.Password))
+        {
+            errors["password"] = ["Senha obrigatoria."];
+        }
+
+        return errors;
+    }
+}
+
 public sealed record SellerRequest(
     string Name,
     string LastName,

@@ -11,9 +11,11 @@ public static class ProductEndpoints
     {
         var group = app.MapGroup("/api/admin/products").RequireAuthorization(policy => policy.RequireRole(MarketplaceSeed.AdminRole, MarketplaceSeed.SellerRole));
 
-        group.MapGet("/", async (string? search, int page, HttpContext http, MarketplaceDbContext db, CancellationToken cancellationToken) =>
+        group.MapGet("/", async (string? search, int page, int pageSize, string? sort, string? direction, HttpContext http, MarketplaceDbContext db, CancellationToken cancellationToken) =>
         {
             page = page <= 0 ? 1 : page;
+            pageSize = pageSize <= 0 ? 10 : Math.Clamp(pageSize, 1, 100);
+            direction = string.Equals(direction, "desc", StringComparison.OrdinalIgnoreCase) ? "desc" : "asc";
             var userId = http.User.GetUserId();
             var isSeller = http.User.IsInRole(MarketplaceSeed.SellerRole) && !http.User.IsInRole(MarketplaceSeed.AdminRole);
             var query = db.Products.Include(item => item.Images).Include(item => item.User).AsQueryable();
@@ -28,10 +30,26 @@ public static class ProductEndpoints
             }
 
             var total = await query.CountAsync(cancellationToken);
-            var items = await query.OrderBy(item => item.Title).Skip((page - 1) * 10).Take(10)
+            query = (sort?.ToLowerInvariant(), direction) switch
+            {
+                ("sku", "desc") => query.OrderByDescending(item => item.Sku),
+                ("sku", _) => query.OrderBy(item => item.Sku),
+                ("stock", "desc") => query.OrderByDescending(item => item.Stock),
+                ("stock", _) => query.OrderBy(item => item.Stock),
+                ("price", "desc") => query.OrderByDescending(item => item.Price),
+                ("price", _) => query.OrderBy(item => item.Price),
+                ("seller", "desc") => query.OrderByDescending(item => item.User!.Name),
+                ("seller", _) => query.OrderBy(item => item.User!.Name),
+                ("offer", "desc") => query.OrderByDescending(item => item.Offer),
+                ("offer", _) => query.OrderBy(item => item.Offer),
+                _ when direction == "desc" => query.OrderByDescending(item => item.Title),
+                _ => query.OrderBy(item => item.Title)
+            };
+
+            var items = await query.Skip((page - 1) * pageSize).Take(pageSize)
                 .Select(item => new AdminProductSummary(item.Id, item.Title, item.Price, item.Stock, item.Offer, item.Sku, item.User!.Name))
                 .ToListAsync(cancellationToken);
-            return Results.Ok(new { Items = items, Total = total, Page = page, PageSize = 10 });
+            return Results.Ok(new { Items = items, Total = total, Page = page, PageSize = pageSize });
         });
 
         group.MapGet("/{id:int}", async (int id, HttpContext http, MarketplaceDbContext db, CancellationToken cancellationToken) =>
@@ -155,6 +173,39 @@ public static class ProductEndpoints
 
             db.Products.Remove(product);
             await db.SaveChangesAsync(cancellationToken);
+            return Results.NoContent();
+        });
+
+        group.MapDelete("/{id:int}/images/{fileName}", async (int id, string fileName, HttpContext http, MarketplaceDbContext db, IWebHostEnvironment environment, CancellationToken cancellationToken) =>
+        {
+            var product = await db.Products.Include(item => item.Images).FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+            if (product is null)
+            {
+                return Results.NotFound();
+            }
+
+            if (http.User.IsInRole(MarketplaceSeed.SellerRole) && !http.User.IsInRole(MarketplaceSeed.AdminRole) && product.UserId != http.User.GetUserId())
+            {
+                return Results.Forbid();
+            }
+
+            var sanitized = Path.GetFileName(fileName);
+            var image = product.Images.FirstOrDefault(item => item.FileName == sanitized);
+            if (image is null)
+            {
+                return Results.NotFound();
+            }
+
+            db.ProductImages.Remove(image);
+            await db.SaveChangesAsync(cancellationToken);
+
+            var basePath = environment.WebRootPath ?? Path.Combine(environment.ContentRootPath, "wwwroot");
+            var absolutePath = Path.Combine(basePath, "uploads", "products", sanitized);
+            if (File.Exists(absolutePath))
+            {
+                File.Delete(absolutePath);
+            }
+
             return Results.NoContent();
         });
 

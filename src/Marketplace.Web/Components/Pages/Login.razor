@@ -1,8 +1,8 @@
 @page "/login"
 @rendermode InteractiveServer
-@inject MarketplaceApiClient Api
 @inject ClientState State
 @inject IJSRuntime Js
+@inject NavigationManager Navigation
 
 <PageTitle>Login</PageTitle>
 
@@ -21,11 +21,6 @@ else
         <div class="legacy-auth-card">
             <span class="market-eyebrow text-center">Bem-vindo de volta</span>
             <h1 class="h4 mb-3 font-weight-normal text-center">Entre para continuar comprando</h1>
-            <div class="social-login-row" aria-label="Login social preparado para futura integracao">
-                <button class="btn btn-outline-secondary" type="button" disabled>Google</button>
-                <button class="btn btn-outline-secondary" type="button" disabled>Apple</button>
-            </div>
-            <div class="auth-divider"><span>ou use seu login</span></div>
             <label class="sr-only" for="login">Login</label>
             <input id="login" class="form-control" placeholder="Informe seu login" @bind="login" />
             <label class="sr-only" for="password">Senha</label>
@@ -49,19 +44,20 @@ else
     private async Task SignInAsync()
     {
         error = null;
-        var result = await Api.LoginAsync(login, password);
-        if (result is null)
+        var result = await Js.InvokeAsync<WebLoginResult>("marketplaceSession.login", login, password);
+        if (!result.Succeeded)
         {
-            error = "Login ou senha invalidos.";
+            error = string.IsNullOrWhiteSpace(result.Message) ? "Login ou senha invalidos." : result.Message;
             return;
         }
 
-        await Js.InvokeVoidAsync("marketplaceAuth.save", State.Snapshot);
+        Navigation.NavigateTo("/", forceLoad: true);
     }
 
     private async Task SignOutAsync()
     {
         State.SignOut();
-        await Js.InvokeVoidAsync("marketplaceAuth.clear");
+        await Js.InvokeVoidAsync("marketplaceSession.logout");
+        Navigation.NavigateTo("/", forceLoad: true);
     }
 }

@@ -1,3 +1,6 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
+
 namespace Marketplace.Web.Services;
 
 public sealed class ClientState
@@ -14,31 +17,39 @@ public sealed class ClientState
     public bool IsSeller => Roles.Contains("vendedor");
     public bool IsCustomer => Roles.Contains("comum");
 
-    public AuthSnapshot Snapshot => new(Token, UserName, Roles, CartId);
-
-    public void SignIn(string token, string userName, string[] roles)
+    public ClientState()
     {
-        Token = token;
-        UserName = userName;
-        Roles = roles;
-        Changed?.Invoke();
     }
 
-    public void Restore(AuthSnapshot snapshot)
+    public ClientState(IHttpContextAccessor httpContextAccessor)
     {
-        if (string.IsNullOrWhiteSpace(snapshot.Token) || string.IsNullOrWhiteSpace(snapshot.UserName))
+        var user = httpContextAccessor.HttpContext?.User;
+        if (user?.Identity?.IsAuthenticated == true)
         {
+            Restore(user);
+        }
+    }
+
+    public void Restore(ClaimsPrincipal principal)
+    {
+        if (principal.Identity?.IsAuthenticated != true)
+        {
+            SignOut();
             return;
         }
 
-        Token = snapshot.Token;
-        UserName = snapshot.UserName;
-        Roles = snapshot.Roles ?? [];
-        if (!string.IsNullOrWhiteSpace(snapshot.CartId))
+        var token = principal.FindFirst(MarketplaceAuthDefaults.AccessTokenClaim)?.Value;
+        var userName = principal.Identity.Name ?? principal.FindFirst(ClaimTypes.Name)?.Value;
+
+        if (string.IsNullOrWhiteSpace(token) || string.IsNullOrWhiteSpace(userName))
         {
-            CartId = snapshot.CartId;
+            SignOut();
+            return;
         }
 
+        Token = token;
+        UserName = userName;
+        Roles = principal.FindAll(ClaimTypes.Role).Select(claim => claim.Value).ToArray();
         Changed?.Invoke();
     }
 
@@ -61,5 +72,3 @@ public sealed class ClientState
 
     public void NotifyChanged() => Changed?.Invoke();
 }
-
-public sealed record AuthSnapshot(string? Token, string? UserName, string[]? Roles, string? CartId);

@@ -1,4 +1,5 @@
 @page "/admin/carousel"
+@attribute [Authorize(Roles = "admin")]
 @rendermode InteractiveServer
 @using Microsoft.AspNetCore.Components.Forms
 @inject MarketplaceApiClient Api
@@ -52,27 +53,38 @@ else
         </EditForm>
 
         <div class="table-panel">
-            <table class="table">
+            <form class="admin-filter-bar" @onsubmit="SearchAsync" @onsubmit:preventDefault="true">
+                <input class="form-control" placeholder="Buscar por nome do arquivo ou ordem" @bind="search" @bind:event="oninput" />
+                <button class="btn btn-outline-secondary" type="submit">Buscar</button>
+            </form>
+
+            <table class="table admin-data-table">
                 <thead>
                     <tr>
-                        <th>Imagem</th>
-                        <th>Ordem</th>
                         <th></th>
+                        <th><button class="table-sort" type="button" @onclick='() => SortCarousel("file")'>Imagem</button></th>
+                        <th class="number-cell"><button class="table-sort" type="button" @onclick='() => SortCarousel("order")'>Ordem</button></th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var image in carousel)
+                    @foreach (var image in FilteredCarousel)
                     {
                         <tr>
+                            <td class="actions-column">
+                                <div class="action-cell">
+                                    <button class="btn btn-sm btn-outline-secondary icon-action" type="button" title="Editar" @onclick="() => Edit(image)">
+                                        <i class="fa fa-pen"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger icon-action" type="button" title="Excluir" @onclick="() => DeleteAsync(image.Id)">
+                                        <i class="fa fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
                             <td>
                                 <img class="thumb" src="@Api.AssetUrl(image.FileName)" alt="Destaque" />
                                 <span>@image.FileName</span>
                             </td>
                             <td>@image.SortOrder</td>
-                            <td class="table-actions">
-                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => Edit(image)">Editar</button>
-                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(image.Id)">Excluir</button>
-                            </td>
                         </tr>
                     }
                 </tbody>
@@ -86,6 +98,15 @@ else
     private string? message;
     private AdminCarouselImage[] carousel = [];
     private CarouselForm form = new();
+    private string search = string.Empty;
+    private string sort = "order";
+    private string direction = "asc";
+
+    private IEnumerable<AdminCarouselImage> FilteredCarousel =>
+        ApplySort(carousel.Where(image =>
+            string.IsNullOrWhiteSpace(search) ||
+            image.FileName.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+            image.SortOrder.ToString().Contains(search, StringComparison.OrdinalIgnoreCase)));
 
     protected override async Task OnInitializedAsync()
     {
@@ -100,6 +121,20 @@ else
         loading = true;
         carousel = await Api.GetCarouselAsync();
         loading = false;
+    }
+
+    private Task SearchAsync() => Task.CompletedTask;
+
+    private void SortCarousel(string column)
+    {
+        if (sort == column)
+        {
+            direction = direction == "asc" ? "desc" : "asc";
+            return;
+        }
+
+        sort = column;
+        direction = "asc";
     }
 
     private async Task UploadAsync(InputFileChangeEventArgs args)
@@ -145,6 +180,15 @@ else
     {
         form = new CarouselForm();
     }
+
+    private IEnumerable<AdminCarouselImage> ApplySort(IEnumerable<AdminCarouselImage> source) =>
+        (sort, direction) switch
+        {
+            ("file", "desc") => source.OrderByDescending(image => image.FileName),
+            ("file", _) => source.OrderBy(image => image.FileName),
+            ("order", "desc") => source.OrderByDescending(image => image.SortOrder),
+            _ => source.OrderBy(image => image.SortOrder)
+        };
 
     private sealed class CarouselForm
     {

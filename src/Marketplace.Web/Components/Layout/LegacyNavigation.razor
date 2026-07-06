@@ -3,6 +3,7 @@
 @inject Marketplace.Web.Services.ClientState ClientState
 @inject Marketplace.Web.Services.MarketplaceApiClient Api
 @inject IJSRuntime Js
+@inject NavigationManager Navigation
 
 <header class="container-nav amazon-nav">
     <div class="amazon-topbar">
@@ -59,7 +60,6 @@
             @if (ClientState.IsAuthenticated)
             {
                 <div class="legacy-dropdown">
-                    <button type="button">Area administrativa</button>
                     <div class="legacy-dropdown-menu">
                         <a class="dropdown-item" href="orders">Minhas Compras</a>
                         @if (ClientState.IsSeller || ClientState.IsAdmin)
@@ -155,8 +155,9 @@
     private async Task SignOut()
     {
         ClientState.SignOut();
-        await Js.InvokeVoidAsync("marketplaceAuth.clear");
+        await Js.InvokeVoidAsync("marketplaceSession.logout");
         CloseDrawer();
+        Navigation.NavigateTo("/", forceLoad: true);
     }
 
     private void OpenDrawer() => drawerOpen = true;

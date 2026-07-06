@@ -141,11 +141,6 @@ public sealed class MarketplaceApiClient(HttpClient http, ClientState state)
         }
 
         var result = await response.Content.ReadFromJsonAsync<LoginResponse>(cancellationToken);
-        if (result is not null)
-        {
-            state.SignIn(result.Token, result.User.UserName, result.User.Roles);
-        }
-
         return result;
     }
 
@@ -235,9 +230,25 @@ public sealed class MarketplaceApiClient(HttpClient http, ClientState state)
         response.EnsureSuccessStatusCode();
     }
 
-    public async Task<AdminProductSearchResponse?> GetAdminProductsAsync(CancellationToken cancellationToken = default)
+    public async Task<AdminProductSearchResponse?> GetAdminProductsAsync(string? search = null, int page = 1, int pageSize = 10, string? sort = null, string? direction = null, CancellationToken cancellationToken = default)
     {
-        using var request = NewRequest(HttpMethod.Get, "api/admin/products?page=1");
+        var url = $"api/admin/products?page={page}&pageSize={pageSize}";
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            url += $"&search={Uri.EscapeDataString(search)}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(sort))
+        {
+            url += $"&sort={Uri.EscapeDataString(sort)}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(direction))
+        {
+            url += $"&direction={Uri.EscapeDataString(direction)}";
+        }
+
+        using var request = NewRequest(HttpMethod.Get, url);
         using var response = await http.SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
@@ -286,6 +297,13 @@ public sealed class MarketplaceApiClient(HttpClient http, ClientState state)
     public async Task DeleteProductAsync(int id, CancellationToken cancellationToken = default)
     {
         using var request = NewRequest(HttpMethod.Delete, $"api/admin/products/{id}");
+        using var response = await http.SendAsync(request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task DeleteProductImageAsync(int productId, string fileName, CancellationToken cancellationToken = default)
+    {
+        using var request = NewRequest(HttpMethod.Delete, $"api/admin/products/{productId}/images/{Uri.EscapeDataString(fileName)}");
         using var response = await http.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
     }
@@ -549,6 +567,16 @@ public sealed class MarketplaceApiClient(HttpClient http, ClientState state)
         request.Content = JsonContent.Create(new { user.Name, user.LastName, user.Login, user.Password, user.Cpf, user.Role });
         using var response = await http.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
+    }
+
+    public async Task<RegisterResult> ResetUserPasswordAsync(Guid id, string password, CancellationToken cancellationToken = default)
+    {
+        using var request = NewRequest(HttpMethod.Post, $"api/admin/users/{id}/reset-password");
+        request.Content = JsonContent.Create(new { Password = password });
+        using var response = await http.SendAsync(request, cancellationToken);
+        return response.IsSuccessStatusCode
+            ? new RegisterResult(true, "Senha resetada.")
+            : new RegisterResult(false, await ReadProblemMessageAsync(response, cancellationToken));
     }
 
     public async Task DeleteUserAsync(Guid id, CancellationToken cancellationToken = default)

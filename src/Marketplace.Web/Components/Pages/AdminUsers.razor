@@ -1,4 +1,5 @@
 @page "/admin/users"
+@attribute [Authorize(Roles = "admin")]
 @rendermode InteractiveServer
 @inject MarketplaceApiClient Api
 @inject ClientState State
@@ -12,7 +13,7 @@
     </div>
 </div>
 
-@if (!State.IsAuthenticated)
+@if (!State.IsAuthenticated || !State.IsAdmin)
 {
     <p>Faca login como admin para acessar esta area.</p>
 }
@@ -55,39 +56,73 @@ else
                     <option value="admin">Admin</option>
                 </InputSelect>
             </label>
-            <label>
-                Senha
-                <InputText class="form-control" type="password" @bind-Value="form.Password" />
-            </label>
+            @if (form.Id is null)
+            {
+                <label>
+                    Senha
+                    <InputText class="form-control" type="password" @bind-Value="form.Password" />
+                </label>
+            }
             <div class="form-actions">
                 <button class="btn btn-primary" type="submit">Salvar</button>
                 <button class="btn btn-outline-secondary" type="button" @onclick="ResetForm">Limpar</button>
             </div>
         </EditForm>
 
+        @if (passwordForm.UserId is not null)
+        {
+            <EditForm Model="passwordForm" OnValidSubmit="ResetPasswordAsync" FormName="reset-user-password-form" class="form-panel wide-form">
+                <DataAnnotationsValidator />
+                <h2>Resetar senha</h2>
+                <p class="notice">Usuario: @passwordForm.UserName</p>
+                <label>
+                    Nova senha
+                    <InputText class="form-control" type="password" @bind-Value="passwordForm.Password" />
+                </label>
+                <div class="form-actions">
+                    <button class="btn btn-primary" type="submit">Resetar senha</button>
+                    <button class="btn btn-outline-secondary" type="button" @onclick="CancelPasswordReset">Cancelar</button>
+                </div>
+            </EditForm>
+        }
+
         <div class="table-panel">
-            <table class="table">
+            <form class="admin-filter-bar" @onsubmit="SearchAsync" @onsubmit:preventDefault="true">
+                <input class="form-control" placeholder="Buscar por usuario, login, perfil ou CPF" @bind="search" @bind:event="oninput" />
+                <button class="btn btn-outline-secondary" type="submit">Buscar</button>
+            </form>
+
+            <table class="table admin-data-table">
                 <thead>
                     <tr>
-                        <th>Usuario</th>
-                        <th>Login</th>
-                        <th>Perfil</th>
-                        <th>CPF</th>
                         <th></th>
+                        <th><button class="table-sort" type="button" @onclick='() => SortUsers("name")'>Usuario</button></th>
+                        <th><button class="table-sort" type="button" @onclick='() => SortUsers("login")'>Login</button></th>
+                        <th><button class="table-sort" type="button" @onclick='() => SortUsers("role")'>Perfil</button></th>
+                        <th><button class="table-sort" type="button" @onclick='() => SortUsers("cpf")'>CPF</button></th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var user in users)
+                    @foreach (var user in FilteredUsers)
                     {
                         <tr>
+                            <td class="actions-column">
+                                <div class="action-cell">
+                                    <button class="btn btn-sm btn-outline-secondary icon-action" type="button" title="Editar" @onclick="() => Edit(user)">
+                                        <i class="fa fa-pen"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-warning icon-action" type="button" title="Resetar senha" @onclick="() => StartPasswordReset(user)">
+                                        <i class="fa fa-key"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger icon-action" type="button" title="Excluir" @onclick="() => DeleteAsync(user.Id)">
+                                        <i class="fa fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
                             <td>@user.Name @user.LastName</td>
                             <td>@user.Login</td>
                             <td>@user.Role</td>
                             <td>@user.Cpf</td>
-                            <td class="table-actions">
-                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => Edit(user)">Editar</button>
-                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(user.Id)">Excluir</button>
-                            </td>
                         </tr>
                     }
                 </tbody>
@@ -101,10 +136,22 @@ else
     private string? message;
     private AdminUser[] users = [];
     private UserForm form = new();
+    private PasswordResetForm passwordForm = new();
+    private string search = string.Empty;
+    private string sort = "name";
+    private string direction = "asc";
+
+    private IEnumerable<AdminUser> FilteredUsers =>
+        ApplySort(users.Where(user =>
+            string.IsNullOrWhiteSpace(search) ||
+            $"{user.Name} {user.LastName}".Contains(search, StringComparison.OrdinalIgnoreCase) ||
+            user.Login.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+            user.Role.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+            (user.Cpf?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)));
 
     protected override async Task OnInitializedAsync()
     {
-        if (State.IsAuthenticated)
+        if (State.IsAdmin)
         {
             await LoadAsync();
         }
@@ -115,6 +162,20 @@ else
         loading = true;
         users = await Api.GetAdminUsersAsync();
         loading = false;
+    }
+
+    private Task SearchAsync() => Task.CompletedTask;
+
+    private void SortUsers(string column)
+    {
+        if (sort == column)
+        {
+            direction = direction == "asc" ? "desc" : "asc";
+            return;
+        }
+
+        sort = column;
+        direction = "asc";
     }
 
     private async Task SaveAsync()
@@ -150,6 +211,41 @@ else
         };
     }
 
+    private void StartPasswordReset(AdminUser user)
+    {
+        passwordForm = new PasswordResetForm
+        {
+            UserId = user.Id,
+            UserName = $"{user.Name} {user.LastName}".Trim()
+        };
+    }
+
+    private async Task ResetPasswordAsync()
+    {
+        if (passwordForm.UserId is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(passwordForm.Password))
+        {
+            message = "Informe a nova senha.";
+            return;
+        }
+
+        var result = await Api.ResetUserPasswordAsync(passwordForm.UserId.Value, passwordForm.Password);
+        message = result.Message;
+        if (result.Succeeded)
+        {
+            CancelPasswordReset();
+        }
+    }
+
+    private void CancelPasswordReset()
+    {
+        passwordForm = new PasswordResetForm();
+    }
+
     private async Task DeleteAsync(Guid id)
     {
         await Api.DeleteUserAsync(id);
@@ -162,6 +258,19 @@ else
         form = new UserForm();
     }
 
+    private IEnumerable<AdminUser> ApplySort(IEnumerable<AdminUser> source) =>
+        (sort, direction) switch
+        {
+            ("login", "desc") => source.OrderByDescending(user => user.Login),
+            ("login", _) => source.OrderBy(user => user.Login),
+            ("role", "desc") => source.OrderByDescending(user => user.Role).ThenByDescending(user => user.Name),
+            ("role", _) => source.OrderBy(user => user.Role).ThenBy(user => user.Name),
+            ("cpf", "desc") => source.OrderByDescending(user => user.Cpf),
+            ("cpf", _) => source.OrderBy(user => user.Cpf),
+            ("name", "desc") => source.OrderByDescending(user => user.Name).ThenByDescending(user => user.LastName),
+            _ => source.OrderBy(user => user.Name).ThenBy(user => user.LastName)
+        };
+
     private sealed class UserForm
     {
         public Guid? Id { get; set; }
@@ -171,5 +280,12 @@ else
         public string? Password { get; set; }
         public string? Cpf { get; set; }
         public string Role { get; set; } = "comum";
+    }
+
+    private sealed class PasswordResetForm
+    {
+        public Guid? UserId { get; set; }
+        public string UserName { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
     }
 }

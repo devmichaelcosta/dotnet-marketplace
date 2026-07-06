@@ -1,4 +1,5 @@
 @page "/admin/sellers"
+@attribute [Authorize(Roles = "admin,vendedor")]
 @rendermode InteractiveServer
 @inject MarketplaceApiClient Api
 @inject ClientState State
@@ -97,28 +98,39 @@ else
         </EditForm>
 
         <div class="table-panel">
-            <table class="table">
+            <form class="admin-filter-bar" @onsubmit="SearchAsync" @onsubmit:preventDefault="true">
+                <input class="form-control" placeholder="Buscar por vendedor, empresa, email ou CNPJ" @bind="search" @bind:event="oninput" />
+                <button class="btn btn-outline-secondary" type="submit">Buscar</button>
+            </form>
+
+            <table class="table admin-data-table">
                 <thead>
                     <tr>
-                        <th>Vendedor</th>
-                        <th>Empresa</th>
-                        <th>Email</th>
-                        <th>CNPJ</th>
                         <th></th>
+                        <th><button class="table-sort" type="button" @onclick='() => SortSellers("name")'>Vendedor</button></th>
+                        <th><button class="table-sort" type="button" @onclick='() => SortSellers("company")'>Empresa</button></th>
+                        <th><button class="table-sort" type="button" @onclick='() => SortSellers("email")'>Email</button></th>
+                        <th><button class="table-sort" type="button" @onclick='() => SortSellers("cnpj")'>CNPJ</button></th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var seller in sellers)
+                    @foreach (var seller in FilteredSellers)
                     {
                         <tr>
+                            <td class="actions-column">
+                                <div class="action-cell">
+                                    <button class="btn btn-sm btn-outline-secondary icon-action" type="button" title="Editar" @onclick="() => Edit(seller)">
+                                        <i class="fa fa-pen"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger icon-action" type="button" title="Excluir" @onclick="() => DeleteAsync(seller.Id)">
+                                        <i class="fa fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
                             <td>@seller.Name @seller.LastName</td>
                             <td>@(seller.FantasyName ?? seller.Company)</td>
                             <td>@seller.Email</td>
                             <td>@seller.Cnpj</td>
-                            <td class="table-actions">
-                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => Edit(seller)">Editar</button>
-                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(seller.Id)">Excluir</button>
-                            </td>
                         </tr>
                     }
                 </tbody>
@@ -132,6 +144,18 @@ else
     private string? message;
     private AdminSeller[] sellers = [];
     private SellerForm form = new();
+    private string search = string.Empty;
+    private string sort = "name";
+    private string direction = "asc";
+
+    private IEnumerable<AdminSeller> FilteredSellers =>
+        ApplySort(sellers.Where(seller =>
+            string.IsNullOrWhiteSpace(search) ||
+            $"{seller.Name} {seller.LastName}".Contains(search, StringComparison.OrdinalIgnoreCase) ||
+            (seller.FantasyName?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (seller.Company?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (seller.Email?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (seller.Cnpj?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)));
 
     protected override async Task OnInitializedAsync()
     {
@@ -146,6 +170,20 @@ else
         loading = true;
         sellers = await Api.GetAdminSellersAsync();
         loading = false;
+    }
+
+    private Task SearchAsync() => Task.CompletedTask;
+
+    private void SortSellers(string column)
+    {
+        if (sort == column)
+        {
+            direction = direction == "asc" ? "desc" : "asc";
+            return;
+        }
+
+        sort = column;
+        direction = "asc";
     }
 
     private async Task SaveAsync()
@@ -182,6 +220,19 @@ else
     {
         form = new SellerForm();
     }
+
+    private IEnumerable<AdminSeller> ApplySort(IEnumerable<AdminSeller> source) =>
+        (sort, direction) switch
+        {
+            ("company", "desc") => source.OrderByDescending(seller => seller.FantasyName ?? seller.Company),
+            ("company", _) => source.OrderBy(seller => seller.FantasyName ?? seller.Company),
+            ("email", "desc") => source.OrderByDescending(seller => seller.Email),
+            ("email", _) => source.OrderBy(seller => seller.Email),
+            ("cnpj", "desc") => source.OrderByDescending(seller => seller.Cnpj),
+            ("cnpj", _) => source.OrderBy(seller => seller.Cnpj),
+            ("name", "desc") => source.OrderByDescending(seller => seller.Name).ThenByDescending(seller => seller.LastName),
+            _ => source.OrderBy(seller => seller.Name).ThenBy(seller => seller.LastName)
+        };
 
     private sealed class SellerForm
     {
