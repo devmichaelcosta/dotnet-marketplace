@@ -164,7 +164,7 @@ else
         loading = false;
     }
 
-    private Task SearchAsync() => Task.CompletedTask;
+    private async Task SearchAsync() => await LoadAsync();
 
     private void SortUsers(string column)
     {

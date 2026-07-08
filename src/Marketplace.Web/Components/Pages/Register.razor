@@ -1,45 +1,72 @@
-@page "/register"
+﻿@page "/register"
 @rendermode InteractiveServer
 @inject MarketplaceApiClient Api
 
 <PageTitle>Cadastro</PageTitle>
 
-<section class="legacy-auth-shell legacy-auth-shell-wide">
-<EditForm Model="form" OnValidSubmit="RegisterAsync" FormName="register-form" class="legacy-auth-card legacy-register-card register-form">
-    <DataAnnotationsValidator />
-    <span class="market-eyebrow text-center">Nova conta</span>
-    <h1 class="h4 mb-3 text-center">Cadastre-se na LojaWhatever</h1>
-    <label>
-        Nome
-        <InputText class="form-control" @bind-Value="form.Name" />
-    </label>
-    <label>
-        Sobrenome
-        <InputText class="form-control" @bind-Value="form.LastName" />
-    </label>
-    <label>
-        Login
-        <InputText class="form-control" @bind-Value="form.Login" />
-    </label>
-    <label>
-        CPF
-        <InputText class="form-control" @bind-Value="form.Cpf" />
-    </label>
-    <label>
-        Senha
-        <InputText class="form-control" type="password" @bind-Value="form.Password" />
-        <small class="muted">Use pelo menos 6 caracteres, com letra maiuscula, minuscula e numero.</small>
-    </label>
-    <label class="form-check-row">
-        <InputCheckbox class="form-check-input" @bind-Value="form.Seller" />
-        Quero vender no marketplace
-    </label>
-    <button class="btn btn-primary" type="submit">Criar conta</button>
-    @if (!string.IsNullOrWhiteSpace(message))
-    {
-        <p class="notice">@message</p>
-    }
-</EditForm>
+<section class="legacy-auth-shell auth-shell-split legacy-auth-shell-wide">
+    <div class="auth-promo-panel">
+        <span class="market-eyebrow">Novo por aqui?</span>
+        <h1>Crie sua conta e descubra ofertas, curtidos e compras em um so lugar</h1>
+        <p>Registrar-se leva poucos segundos e ja deixa sua experiencia pronta para navegar, comprar e vender.</p>
+        <div class="auth-trust-row">
+            <span>Cadastro rapido</span>
+            <span>Checkout agil</span>
+            <span>Perfil organizado</span>
+        </div>
+        <div class="auth-promo-list">
+            <div>
+                <strong>Conta pronta para comprar</strong>
+                <span>Acesse o catalogo, carrinho e checkout imediatamente.</span>
+            </div>
+            <div>
+                <strong>Perfil e enderecos</strong>
+                <span>Mantenha seus dados organizados para compras futuras.</span>
+            </div>
+            <div>
+                <strong>Espaco para vendedores</strong>
+                <span>Ative o modo vendedor sem sair do fluxo de cadastro.</span>
+            </div>
+        </div>
+    </div>
+
+    <EditForm Model="form" OnValidSubmit="RegisterAsync" FormName="register-form" class="legacy-auth-card legacy-register-card register-form auth-card-panel">
+        <DataAnnotationsValidator />
+        <span class="market-eyebrow text-center">Nova conta</span>
+        <h2 class="auth-card-title">Cadastre-se na LojaWhatever</h2>
+        <p class="auth-card-subtitle">Comece por nome, login e senha. O restante do perfil pode ser completado depois.</p>
+        <label>
+            Nome
+            <InputText class="form-control" @bind-Value="form.Name" />
+        </label>
+        <label>
+            Sobrenome
+            <InputText class="form-control" @bind-Value="form.LastName" />
+        </label>
+        <label>
+            Login
+            <InputText class="form-control" @bind-Value="form.Login" />
+        </label>
+        <label>
+            CPF
+            <InputText class="form-control" @bind-Value="form.Cpf" />
+        </label>
+        <label>
+            Senha
+            <InputText class="form-control" type="password" @bind-Value="form.Password" />
+            <small class="muted">Use pelo menos 6 caracteres, com letra maiuscula, minuscula e numero.</small>
+        </label>
+        <label class="form-check-row">
+            <InputCheckbox class="form-check-input" @bind-Value="form.Seller" />
+            Quero vender no marketplace
+        </label>
+        <button class="btn btn-primary" type="submit">Criar conta</button>
+        <p class="muted auth-footnote">Ao criar sua conta, voce aceita continuar a jornada de compra com uma experiencia mais rapida e organizada.</p>
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <p class="notice">@message</p>
+        }
+    </EditForm>
 </section>
 
 @code {

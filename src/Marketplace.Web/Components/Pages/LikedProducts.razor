@@ -1,4 +1,4 @@
-@page "/liked"
+﻿@page "/liked"
 @attribute [Authorize]
 @rendermode InteractiveServer
 @inject MarketplaceApiClient Api
@@ -13,27 +13,57 @@
 
 @if (!State.IsAuthenticated)
 {
-    <div class="legacy-info-card">Faca login para ver seus produtos curtidos.</div>
-}
-else if (loading)
-{
-    <div class="legacy-info-card">Carregando produtos curtidos...</div>
-}
-else if (products.Length == 0)
-{
-    <div class="legacy-info-card">Nenhum produto curtido.</div>
+    <section class="liked-hero-panel liked-hero-panel-auth">
+        <span class="market-eyebrow">Favoritos</span>
+        <h1>Veja os produtos que voce salvou para comprar depois</h1>
+        <p>Entre com sua conta para acessar os itens curtidos, revisar a lista e voltar direto para o carrinho.</p>
+        <a class="btn btn-primary" href="login">Fazer login</a>
+    </section>
 }
 else
 {
-    <div class="card bg-light legacy-count-card">
-        <div class="card-header"><span>@products.Length</span> produtos encontrados</div>
-    </div>
-    <section class="home-offers-grid legacy-search-grid">
-        @foreach (var product in products)
-        {
-            <ProductCard Product="product" ShowRemove="true" OnRemove="UnlikeAsync" />
-        }
+    <section class="liked-hero-panel">
+        <div>
+            <span class="market-eyebrow">Favoritos</span>
+            <h1>Produtos curtidos</h1>
+            <p>Use esta lista como sua vitrine pessoal de interesses, pronta para virar compra quando o preco estiver certo.</p>
+        </div>
+        <div class="liked-hero-stats">
+            <div>
+                <strong>@products.Length</strong>
+                <span>Itens salvos</span>
+            </div>
+            <div>
+                <strong>@(products.Length > 0 ? "Atualizada" : "Vazia")</strong>
+                <span>Situacao da lista</span>
+            </div>
+        </div>
     </section>
+
+    if (loading)
+    {
+        <div class="legacy-info-card">Carregando produtos curtidos...</div>
+    }
+    else if (products.Length == 0)
+    {
+        <section class="liked-empty-state">
+            <h2>Sua lista ainda esta vazia</h2>
+            <p>Quando voce salvar produtos por aqui, eles vao aparecer nesta area com acesso rapido para o detalhe e compra.</p>
+            <a class="btn btn-primary" href="/">Explorar catalogo</a>
+        </section>
+    }
+    else
+    {
+        <div class="card bg-light legacy-count-card liked-summary-card">
+            <div class="card-header"><span>@products.Length</span> produtos encontrados</div>
+        </div>
+        <section class="home-offers-grid legacy-search-grid">
+            @foreach (var product in products)
+            {
+                <ProductCard Product="product" ShowRemove="true" OnRemove="UnlikeAsync" />
+            }
+        </section>
+    }
 }
 
 @code {

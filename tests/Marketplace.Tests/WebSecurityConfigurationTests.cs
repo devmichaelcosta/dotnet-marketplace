@@ -128,6 +128,56 @@ public sealed class WebSecurityConfigurationTests
         Assert.Contains("icon-action", page);
     }
 
+    [Theory]
+    [InlineData("AdminUsers.razor")]
+    [InlineData("AdminSellers.razor")]
+    [InlineData("AdminCatalog.razor")]
+    [InlineData("AdminCarousel.razor")]
+    public void Admin_search_forms_submit_real_actions(string fileName)
+    {
+        var page = ReadSource("src", "Marketplace.Web", "Components", "Pages", fileName);
+
+        Assert.Contains("await LoadAsync()", page);
+    }
+
+    [Fact]
+    public void Customer_facing_pages_expose_the_new_hero_sections()
+    {
+        var home = ReadSource("src", "Marketplace.Web", "Components", "Pages", "Home.razor");
+        var product = ReadSource("src", "Marketplace.Web", "Components", "Pages", "ProductDetails.razor");
+        var cart = ReadSource("src", "Marketplace.Web", "Components", "Pages", "Cart.razor");
+        var profile = ReadSource("src", "Marketplace.Web", "Components", "Pages", "Profile.razor");
+        var register = ReadSource("src", "Marketplace.Web", "Components", "Pages", "Register.razor");
+        var recover = ReadSource("src", "Marketplace.Web", "Components", "Pages", "RecoverPassword.razor");
+        var liked = ReadSource("src", "Marketplace.Web", "Components", "Pages", "LikedProducts.razor");
+        var orders = ReadSource("src", "Marketplace.Web", "Components", "Pages", "Orders.razor");
+        var card = ReadSource("src", "Marketplace.Web", "Components", "Shared", "ProductCard.razor");
+
+        Assert.Contains("market-home-hero", home);
+        Assert.Contains("product-hero-shell", product);
+        Assert.Contains("cart-hero-panel", cart);
+        Assert.Contains("profile-hero-panel", profile);
+        Assert.Contains("auth-shell-split", register);
+        Assert.Contains("auth-card-subtitle", register);
+        Assert.Contains("auth-shell-recover", recover);
+        Assert.Contains("liked-hero-panel", liked);
+        Assert.Contains("liked-empty-state", liked);
+        Assert.Contains("<nav class=\"nav-breadcrumb admin-breadcrumb\">", orders);
+        Assert.Contains("wishlist-button", card);
+    }
+
+    [Fact]
+    public void Breadcrumbs_use_distinct_panel_styling()
+    {
+        var css = ReadSource("src", "Marketplace.Web", "wwwroot", "app.css");
+
+        Assert.Contains(".nav-breadcrumb {", css);
+        Assert.Contains("box-shadow: var(--market-shadow-soft);", css);
+        Assert.Contains("max-width: none;", css);
+        Assert.Contains("width: 100%;", css);
+        Assert.Contains("content: \"/\";", css);
+    }
+
     [Fact]
     public void Admin_orders_page_uses_datatable_search_and_sort()
     {
@@ -171,6 +221,35 @@ public sealed class WebSecurityConfigurationTests
         {
             Assert.Contains(module, matrix);
         }
+    }
+
+    [Fact]
+    public void Status_document_tracks_completed_and_security_different_items()
+    {
+        var status = ReadSource("docs", "status-implementacao.md");
+
+        Assert.Contains("Concluído", status);
+        Assert.Contains("Diferente por segurança", status);
+        Assert.Contains("dotnet test DotNetMarketplace.slnx", status);
+    }
+
+    [Fact]
+    public void Admin_orders_and_ratings_use_server_side_sorting_and_search()
+    {
+        var client = ReadSource("src", "Marketplace.Web", "Services", "MarketplaceApiClient.cs");
+        var ordersPage = ReadSource("src", "Marketplace.Web", "Components", "Pages", "AdminOrders.razor");
+        var ratingsPage = ReadSource("src", "Marketplace.Web", "Components", "Pages", "AdminRatings.razor");
+        var ordersApi = ReadSource("src", "Marketplace.Api", "Features", "Orders", "OrderEndpoints.cs");
+        var ratingsApi = ReadSource("src", "Marketplace.Api", "Features", "Products", "ProductEndpoints.cs");
+
+        Assert.Contains("GetAdminOrdersAsync(string? search = null, string? sort = null, string? direction = null", client);
+        Assert.Contains("GetPendingRatingsAsync(string? search = null, string? sort = null, string? direction = null", client);
+        Assert.Contains("GetAdminOrdersAsync(search, sort, direction)", ordersPage);
+        Assert.Contains("GetPendingRatingsAsync(search, sort, direction)", ratingsPage);
+        Assert.Contains("sort", ordersApi);
+        Assert.Contains("direction", ordersApi);
+        Assert.Contains("api/admin/ratings/pending", ratingsApi);
+        Assert.Contains("sort", ratingsApi);
     }
 
     private static string ReadSource(params string[] relativePath)

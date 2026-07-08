@@ -717,9 +717,25 @@ public sealed class MarketplaceApiClient(HttpClient http, ClientState state)
         return await response.Content.ReadFromJsonAsync<UploadResult>(cancellationToken);
     }
 
-    public async Task<PendingRating[]> GetPendingRatingsAsync(CancellationToken cancellationToken = default)
+    public async Task<PendingRating[]> GetPendingRatingsAsync(string? search = null, string? sort = null, string? direction = null, CancellationToken cancellationToken = default)
     {
-        using var request = NewRequest(HttpMethod.Get, "api/admin/ratings/pending");
+        var url = "api/admin/ratings/pending";
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            url += $"?search={Uri.EscapeDataString(search)}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(sort))
+        {
+            url += $"{(url.Contains('?') ? '&' : '?')}sort={Uri.EscapeDataString(sort)}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(direction))
+        {
+            url += $"{(url.Contains('?') ? '&' : '?')}direction={Uri.EscapeDataString(direction)}";
+        }
+
+        using var request = NewRequest(HttpMethod.Get, url);
         using var response = await http.SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
@@ -760,12 +776,22 @@ public sealed class MarketplaceApiClient(HttpClient http, ClientState state)
         return await response.Content.ReadFromJsonAsync<OrderDetails>(cancellationToken);
     }
 
-    public async Task<AdminOrderSummary[]> GetAdminOrdersAsync(string? search = null, CancellationToken cancellationToken = default)
+    public async Task<AdminOrderSummary[]> GetAdminOrdersAsync(string? search = null, string? sort = null, string? direction = null, CancellationToken cancellationToken = default)
     {
         var url = "api/admin/orders";
         if (!string.IsNullOrWhiteSpace(search))
         {
             url += $"?search={Uri.EscapeDataString(search)}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(sort))
+        {
+            url += $"{(url.Contains('?') ? '&' : '?')}sort={Uri.EscapeDataString(sort)}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(direction))
+        {
+            url += $"{(url.Contains('?') ? '&' : '?')}direction={Uri.EscapeDataString(direction)}";
         }
 
         using var request = NewRequest(HttpMethod.Get, url);

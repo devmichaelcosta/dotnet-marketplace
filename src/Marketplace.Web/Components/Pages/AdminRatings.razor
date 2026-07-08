@@ -44,7 +44,7 @@ else
                 </tr>
             </thead>
             <tbody>
-                @foreach (var rating in FilteredRatings)
+                @foreach (var rating in ratings)
                 {
                     <tr>
                         <td class="actions-column">
@@ -75,13 +75,6 @@ else
     private string sort = "rating";
     private string direction = "desc";
 
-    private IEnumerable<PendingRating> FilteredRatings =>
-        ApplySort(ratings.Where(rating =>
-            string.IsNullOrWhiteSpace(search) ||
-            rating.ProductTitle.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-            rating.UserName.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-            rating.Title.Contains(search, StringComparison.OrdinalIgnoreCase)));
-
     protected override async Task OnInitializedAsync()
     {
         if (State.IsAuthenticated)
@@ -93,22 +86,26 @@ else
     private async Task LoadAsync()
     {
         loading = true;
-        ratings = await Api.GetPendingRatingsAsync();
+        ratings = await Api.GetPendingRatingsAsync(search, sort, direction);
         loading = false;
     }
 
-    private Task SearchAsync() => Task.CompletedTask;
+    private async Task SearchAsync() => await LoadAsync();
 
-    private void SortRatings(string column)
+    private async Task SortRatings(string column)
     {
         if (sort == column)
         {
             direction = direction == "asc" ? "desc" : "asc";
-            return;
         }
 
-        sort = column;
-        direction = "asc";
+        if (sort != column)
+        {
+            sort = column;
+            direction = "asc";
+        }
+
+        await LoadAsync();
     }
 
     private async Task ApproveAsync(int id)
@@ -116,17 +113,4 @@ else
         await Api.ApproveRatingAsync(id);
         await LoadAsync();
     }
-
-    private IEnumerable<PendingRating> ApplySort(IEnumerable<PendingRating> source) =>
-        (sort, direction) switch
-        {
-            ("product", "desc") => source.OrderByDescending(rating => rating.ProductTitle),
-            ("product", _) => source.OrderBy(rating => rating.ProductTitle),
-            ("user", "desc") => source.OrderByDescending(rating => rating.UserName),
-            ("user", _) => source.OrderBy(rating => rating.UserName),
-            ("title", "desc") => source.OrderByDescending(rating => rating.Title),
-            ("title", _) => source.OrderBy(rating => rating.Title),
-            ("rating", "desc") => source.OrderByDescending(rating => rating.Rating),
-            _ => source.OrderBy(rating => rating.Rating)
-        };
 }

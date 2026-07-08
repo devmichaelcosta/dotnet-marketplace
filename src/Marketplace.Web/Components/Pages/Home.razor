@@ -57,12 +57,38 @@ else
 
     @if (!IsSearchMode)
     {
-        <section class="market-home-intro">
-            <div>
-                <span class="market-eyebrow">Marketplace premium</span>
-                <h1>Descubra produtos selecionados para comprar sem atrito</h1>
+        <section class="market-home-hero">
+            <div class="market-home-intro">
+                <div>
+                    <span class="market-eyebrow">Marketplace premium</span>
+                    <h1>Descubra produtos selecionados para comprar sem atrito</h1>
+                    <p>Ofertas, novidades e recomendações organizadas para você encontrar rápido o que precisa.</p>
+                </div>
+                <div class="market-hero-card">
+                    <div class="market-hero-card-top">
+                        <span class="market-eyebrow">Curadoria viva</span>
+                        <strong>Compra mais rápida, mais clara e mais confiável.</strong>
+                    </div>
+                    <div class="market-stat-grid">
+                        <div class="market-stat">
+                            <span>Ofertas ativas</span>
+                            <strong>@PromotionProducts.Length</strong>
+                        </div>
+                        <div class="market-stat">
+                            <span>Categorias</span>
+                            <strong>@categories.Length</strong>
+                        </div>
+                        <div class="market-stat">
+                            <span>Produtos em destaque</span>
+                            <strong>@products.Length</strong>
+                        </div>
+                    </div>
+                    <div class="market-hero-actions">
+                        <a class="btn btn-primary" href="/?s=oferta">Ver ofertas</a>
+                        <a class="btn btn-outline-secondary" href="/cart">Ir ao carrinho</a>
+                    </div>
+                </div>
             </div>
-            <p>Ofertas, novidades e recomendacoes organizadas para voce encontrar rapido o que precisa.</p>
         </section>
 
         <h2 class="home-section-title">Categorias em destaque</h2>

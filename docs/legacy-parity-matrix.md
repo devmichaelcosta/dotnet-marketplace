@@ -7,6 +7,9 @@ Status:
 - `Falta`: funcionalidade legada ainda nao tem equivalente suficiente.
 - `Diferente por seguranca`: comportamento legado foi alterado intencionalmente para evitar risco.
 
+> Nota: esta matriz foi usada durante a migracao e continua como referencia historica.
+> O status consolidado atual do projeto esta em `docs/status-implementacao.md`.
+
 | Modulo legado | Referencias PHP | Equivalente .NET | Status | Pendencias para 100% funcional + visual |
 | --- | --- | --- | --- | --- |
 | Home/catalogo | `HomeController`, `SearchController`, `ProductsByCategoryController`, `ProductsBySubCategoryController`, `views/home`, `views/category` | `CatalogEndpoints`, `Home.razor`, `ProductCard.razor`, `SearchFilterPanel.razor` | Parcial | Conferir paginacao, filtros por categoria/subcategoria e responsividade contra o legado. |

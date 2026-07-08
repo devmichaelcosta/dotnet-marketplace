@@ -35,7 +35,12 @@ public static class OrderEndpoints
             .RequireAuthorization(policy => policy.RequireRole(MarketplaceSeed.AdminRole))
             .WithTags("Admin Orders");
 
-        adminGroup.MapGet("/", async (string? search, MarketplaceDbContext db, CancellationToken cancellationToken) =>
+        adminGroup.MapGet("/", async (
+            string? search,
+            string? sort,
+            string? direction,
+            MarketplaceDbContext db,
+            CancellationToken cancellationToken) =>
         {
             var query = db.Orders.Include(order => order.User).AsQueryable();
             if (!string.IsNullOrWhiteSpace(search))
@@ -47,8 +52,21 @@ public static class OrderEndpoints
                     order.User.UserName!.Contains(search));
             }
 
+            query = (sort?.ToLowerInvariant(), direction?.Equals("asc", StringComparison.OrdinalIgnoreCase) == true) switch
+            {
+                ("id", true) => query.OrderBy(order => order.Id),
+                ("id", false) => query.OrderByDescending(order => order.Id),
+                ("customer", true) => query.OrderBy(order => order.User!.Name).ThenBy(order => order.User!.UserName),
+                ("customer", false) => query.OrderByDescending(order => order.User!.Name).ThenByDescending(order => order.User!.UserName),
+                ("city", true) => query.OrderBy(order => order.City),
+                ("city", false) => query.OrderByDescending(order => order.City),
+                ("total", true) => query.OrderBy(order => order.Total),
+                ("total", false) => query.OrderByDescending(order => order.Total),
+                ("created", true) => query.OrderBy(order => order.CreatedAt),
+                _ => query.OrderByDescending(order => order.CreatedAt)
+            };
+
             var orders = await query
-                .OrderByDescending(order => order.CreatedAt)
                 .Take(100)
                 .Select(order => new AdminOrderSummaryResponse(
                     order.Id,

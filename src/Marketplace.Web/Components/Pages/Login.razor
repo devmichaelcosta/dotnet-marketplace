@@ -6,45 +6,71 @@
 
 <PageTitle>Login</PageTitle>
 
-@if (State.IsAuthenticated)
-{
-    <section class="legacy-auth-shell">
-        <div class="legacy-auth-card">
-            <h1 class="h4 mb-3 text-center">Logado como <strong>@State.UserName</strong></h1>
+<section class="legacy-auth-shell auth-shell-split">
+    <div class="auth-promo-panel">
+        <span class="market-eyebrow">Marketplace premium</span>
+        <h1>Entre e volte exatamente para onde parou</h1>
+        <p>Continue sua navegação, recupere o carrinho e acesse seus pedidos com um fluxo simples e seguro.</p>
+        <div class="auth-promo-list">
+            <div>
+                <strong>Checkout rápido</strong>
+                <span>Seus dados ficam prontos para a próxima compra.</span>
+            </div>
+            <div>
+                <strong>Pedidos e curtidos</strong>
+                <span>Acompanhe o que você já viu e comprou.</span>
+            </div>
+            <div>
+                <strong>Conta unificada</strong>
+                <span>Login, perfil e endereços em um só lugar.</span>
+            </div>
+        </div>
+    </div>
+
+    @if (State.IsAuthenticated)
+    {
+        <div class="legacy-auth-card auth-card-panel">
+            <span class="market-eyebrow text-center">Acesso ativo</span>
+            <h2 class="auth-card-title">Você já está logado como <strong>@State.UserName</strong></h2>
+            <p class="muted text-center">Se quiser, pode sair agora e trocar de conta.</p>
             <button class="btn btn-lg btn-block btn-outline-dark w-100" @onclick="SignOutAsync">Sair</button>
         </div>
-    </section>
-}
-else
-{
-    <section class="legacy-auth-shell">
-        <div class="legacy-auth-card">
+    }
+    else
+    {
+        <EditForm Model="form" OnValidSubmit="SignInAsync" FormName="login-form" class="legacy-auth-card auth-card-panel">
+            <DataAnnotationsValidator />
             <span class="market-eyebrow text-center">Bem-vindo de volta</span>
-            <h1 class="h4 mb-3 font-weight-normal text-center">Entre para continuar comprando</h1>
-            <label class="sr-only" for="login">Login</label>
-            <input id="login" class="form-control" placeholder="Informe seu login" @bind="login" />
-            <label class="sr-only" for="password">Senha</label>
-            <input id="password" class="form-control" type="password" placeholder="Informe sua senha" @bind="password" />
-            <button class="btn btn-lg btn-block mt-3 btn-primary w-100" @onclick="SignInAsync">Entrar</button>
-            <a class="a-primary d-block text-center mt-3" href="register">Criar uma conta</a>
-            <a class="muted d-block text-center mt-2" href="recover-password">Esqueci minha senha</a>
-        @if (!string.IsNullOrWhiteSpace(error))
-        {
-            <p class="text-danger">@error</p>
-        }
-        </div>
-    </section>
-}
+            <h2 class="auth-card-title">Entre para continuar comprando</h2>
+            <label>
+                Login
+                <InputText id="login" class="form-control" placeholder="Informe seu login" @bind-Value="form.Login" />
+            </label>
+            <label>
+                Senha
+                <InputText id="password" class="form-control" type="password" placeholder="Informe sua senha" @bind-Value="form.Password" />
+            </label>
+            <button class="btn btn-lg btn-block mt-2 btn-primary w-100" type="submit">Entrar</button>
+            <div class="auth-links">
+                <a class="a-primary d-block text-center mt-3" href="register">Criar uma conta</a>
+                <a class="muted d-block text-center mt-2" href="recover-password">Esqueci minha senha</a>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(error))
+            {
+                <p class="text-danger">@error</p>
+            }
+        </EditForm>
+    }
+</section>
 
 @code {
-    private string login = string.Empty;
-    private string password = string.Empty;
+    private LoginForm form = new();
     private string? error;
 
     private async Task SignInAsync()
     {
         error = null;
-        var result = await Js.InvokeAsync<WebLoginResult>("marketplaceSession.login", login, password);
+        var result = await Js.InvokeAsync<WebLoginResult>("marketplaceSession.login", form.Login, form.Password);
         if (!result.Succeeded)
         {
             error = string.IsNullOrWhiteSpace(result.Message) ? "Login ou senha invalidos." : result.Message;
@@ -59,5 +85,11 @@ else
         State.SignOut();
         await Js.InvokeVoidAsync("marketplaceSession.logout");
         Navigation.NavigateTo("/", forceLoad: true);
+    }
+
+    private sealed class LoginForm
+    {
+        public string Login { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
     }
 }

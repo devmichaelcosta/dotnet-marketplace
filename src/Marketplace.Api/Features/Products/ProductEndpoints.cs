@@ -312,12 +312,42 @@ public static class ProductEndpoints
             return Results.NoContent();
         }).RequireAuthorization(policy => policy.RequireRole(MarketplaceSeed.AdminRole));
 
-        app.MapGet("/api/admin/ratings/pending", async (MarketplaceDbContext db, CancellationToken cancellationToken) =>
-            await db.ProductRatings
+        app.MapGet("/api/admin/ratings/pending", async (
+            string? search,
+            string? sort,
+            string? direction,
+            MarketplaceDbContext db,
+            CancellationToken cancellationToken) =>
+        {
+            var query = db.ProductRatings
                 .Include(item => item.Product)
                 .Include(item => item.User)
-                .Where(item => !item.Approved)
-                .OrderBy(item => item.CreatedAt)
+                .Where(item => !item.Approved);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                query = query.Where(item =>
+                    item.Product!.Title.Contains(search) ||
+                    item.User!.Name.Contains(search) ||
+                    item.Title.Contains(search) ||
+                    item.Description.Contains(search));
+            }
+
+            query = (sort?.ToLowerInvariant(), direction?.Equals("desc", StringComparison.OrdinalIgnoreCase) == true) switch
+            {
+                ("product", true) => query.OrderByDescending(item => item.Product!.Title),
+                ("product", false) => query.OrderBy(item => item.Product!.Title),
+                ("user", true) => query.OrderByDescending(item => item.User!.Name),
+                ("user", false) => query.OrderBy(item => item.User!.Name),
+                ("title", true) => query.OrderByDescending(item => item.Title),
+                ("title", false) => query.OrderBy(item => item.Title),
+                ("rating", true) => query.OrderByDescending(item => item.Rating),
+                ("rating", false) => query.OrderBy(item => item.Rating),
+                ("created", false) => query.OrderBy(item => item.CreatedAt),
+                _ => query.OrderByDescending(item => item.CreatedAt)
+            };
+
+            return await query
                 .Select(item => new PendingRatingResponse(
                     item.Id,
                     item.ProductId,
@@ -328,7 +358,8 @@ public static class ProductEndpoints
                     item.Rating,
                     item.Recommended,
                     item.CreatedAt))
-                .ToListAsync(cancellationToken))
+                .ToListAsync(cancellationToken);
+        })
             .RequireAuthorization(policy => policy.RequireRole(MarketplaceSeed.AdminRole));
 
         return app;

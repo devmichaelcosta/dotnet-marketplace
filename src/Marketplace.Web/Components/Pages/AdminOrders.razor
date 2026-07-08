@@ -25,7 +25,7 @@ else
 {
     <section class="orders-layout">
         <div class="table-panel compact">
-            <form class="admin-filter-bar" @onsubmit="LoadAsync" @onsubmit:preventDefault="true">
+            <form class="admin-filter-bar" @onsubmit="SearchAsync" @onsubmit:preventDefault="true">
                 <input class="form-control" placeholder="Cliente, login ou cidade" @bind="search" @bind:event="oninput" />
                 <button class="btn btn-primary" type="submit">Buscar</button>
             </form>
@@ -41,7 +41,7 @@ else
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var order in FilteredOrders)
+                    @foreach (var order in orders)
                     {
                         <tr class="selectable-row" @onclick="() => SelectAsync(order.Id)">
                             <td>#@order.Id</td>
@@ -103,13 +103,6 @@ else
     private string sort = "created";
     private string direction = "desc";
 
-    private IEnumerable<AdminOrderSummary> FilteredOrders =>
-        ApplySort(orders.Where(order =>
-            string.IsNullOrWhiteSpace(search) ||
-            order.UserName.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-            order.Login.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-            order.City.Contains(search, StringComparison.OrdinalIgnoreCase)));
-
     protected override async Task OnInitializedAsync()
     {
         if (State.IsAuthenticated)
@@ -122,20 +115,26 @@ else
     {
         loading = true;
         selected = null;
-        orders = await Api.GetAdminOrdersAsync(search);
+        orders = await Api.GetAdminOrdersAsync(search, sort, direction);
         loading = false;
     }
 
-    private void SortOrders(string column)
+    private async Task SearchAsync() => await LoadAsync();
+
+    private async Task SortOrders(string column)
     {
         if (sort == column)
         {
             direction = direction == "asc" ? "desc" : "asc";
-            return;
         }
 
-        sort = column;
-        direction = "asc";
+        if (sort != column)
+        {
+            sort = column;
+            direction = "asc";
+        }
+
+        await LoadAsync();
     }
 
     private async Task SelectAsync(int id)
@@ -143,18 +142,4 @@ else
         selected = await Api.GetAdminOrderDetailsAsync(id);
     }
 
-    private IEnumerable<AdminOrderSummary> ApplySort(IEnumerable<AdminOrderSummary> source) =>
-        (sort, direction) switch
-        {
-            ("id", "desc") => source.OrderByDescending(order => order.Id),
-            ("id", _) => source.OrderBy(order => order.Id),
-            ("customer", "desc") => source.OrderByDescending(order => order.UserName).ThenByDescending(order => order.Login),
-            ("customer", _) => source.OrderBy(order => order.UserName).ThenBy(order => order.Login),
-            ("city", "desc") => source.OrderByDescending(order => order.City),
-            ("city", _) => source.OrderBy(order => order.City),
-            ("total", "desc") => source.OrderByDescending(order => order.Total),
-            ("total", _) => source.OrderBy(order => order.Total),
-            ("created", "desc") => source.OrderByDescending(order => order.CreatedAt),
-            _ => source.OrderBy(order => order.CreatedAt)
-        };
 }

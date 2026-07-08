@@ -9,15 +9,41 @@
     <span>Carrinho</span>
 </nav>
 
+<section class="cart-hero-panel">
+    <div>
+        <span class="market-eyebrow">Carrinho e checkout</span>
+        <h1>Revise seus produtos e conclua em poucos passos</h1>
+        <p>Uma experiência limpa, com resumo claro do pedido, frete visível e checkout objetivo.</p>
+    </div>
+    <div class="cart-hero-stats">
+        <div>
+            <span>Itens</span>
+            <strong>@(cart?.Items.Sum(item => item.Quantity) ?? 0)</strong>
+        </div>
+        <div>
+            <span>Subtotal</span>
+            <strong>@(cart?.SubTotal.ToString("C") ?? "R$ 0,00")</strong>
+        </div>
+        <div>
+            <span>Total</span>
+            <strong>@(cart?.Total.ToString("C") ?? "R$ 0,00")</strong>
+        </div>
+    </div>
+</section>
+
 @if (cart is null)
 {
     <div class="legacy-info-card">Carregando carrinho...</div>
 }
 else if (cart.Items.Length == 0)
 {
-    <section class="legacy-info-card">
-        <h4>Meu Carrinho</h4>
-        <div class="alert alert-info mb-0" role="alert">Nao ha produtos no carrinho.</div>
+    <section class="market-empty-state cart-empty-state">
+        <h2>Seu carrinho está vazio</h2>
+        <p>Explore a vitrine e volte quando encontrar algo que valha a pena levar agora.</p>
+        <div class="market-hero-actions">
+            <a class="btn btn-primary" href="/">Explorar catalogo</a>
+            <a class="btn btn-outline-secondary" href="/login">Entrar na conta</a>
+        </div>
     </section>
 }
 else

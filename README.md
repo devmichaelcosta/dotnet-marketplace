@@ -121,5 +121,5 @@ dotnet test DotNetMarketplace.slnx
 
 - O sistema ainda preserva a pasta `legado/` como referencia de comportamento.
 - Upload real de imagens/assets grava em `wwwroot/uploads`, com validacao de formato e limite de 5 MB por imagem.
-- Testes de integracao mais completos ainda devem ser refinados para ampliar a cobertura dos fluxos criticos.
+- O status consolidado da migracao esta em `docs/status-implementacao.md`.
 - Pode haver warning NU1903 em dependencia transitiva `System.Security.Cryptography.Xml`; acompanhar atualizacoes dos pacotes dependentes.

@@ -253,7 +253,7 @@
     private void CreateCategory() => Navigation.NavigateTo("/admin/catalog/categories/create");
     private void EditCategory(int id) => Navigation.NavigateTo($"/admin/catalog/categories/{id}/edit");
 
-    private Task SearchCategoriesAsync() => Task.CompletedTask;
+    private async Task SearchCategoriesAsync() => await LoadAsync();
 
     private void SortCategories(string column)
     {
@@ -292,7 +292,7 @@
         }
     }
 
-    private Task SearchSubCategoriesAsync() => Task.CompletedTask;
+    private async Task SearchSubCategoriesAsync() => await LoadAsync();
 
     private void SortSubCategories(string column)
     {
@@ -320,7 +320,7 @@
         }
     }
 
-    private Task SearchAttributesAsync() => Task.CompletedTask;
+    private async Task SearchAttributesAsync() => await LoadAsync();
 
     private void SortAttributes(string column)
     {
