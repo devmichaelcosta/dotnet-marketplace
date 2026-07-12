@@ -268,10 +268,18 @@
             {
                 selectedIds.Add(productId);
             }
+
+            var product = products.Items.FirstOrDefault(item => item.Id == productId);
+            if (product is not null && selectedProducts.All(item => item.Id != productId))
+            {
+                selectedProducts.Add(product);
+                selectedProducts.Sort((left, right) => string.Compare(left.Title, right.Title, StringComparison.OrdinalIgnoreCase));
+            }
         }
         else
         {
             selectedIds.RemoveAll(item => item == productId);
+            selectedProducts.RemoveAll(item => item.Id == productId);
         }
     }
 

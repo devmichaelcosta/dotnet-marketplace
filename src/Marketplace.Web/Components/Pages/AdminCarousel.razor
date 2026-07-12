@@ -4,6 +4,7 @@
 @using Microsoft.AspNetCore.Components.Forms
 @inject MarketplaceApiClient Api
 @inject ClientState State
+@inject IJSRuntime Js
 
 <PageTitle>Destaques</PageTitle>
 
@@ -14,7 +15,7 @@
     </div>
 </div>
 
-@if (!State.IsAuthenticated)
+@if (!State.IsAuthenticated || !State.IsAdmin)
 {
     <p>Faca login como admin para acessar esta area.</p>
 }
@@ -26,7 +27,7 @@ else
 {
     @if (!string.IsNullOrWhiteSpace(message))
     {
-        <p class="notice">@message</p>
+        <p class="notice @(successMessage ? "notice-success" : null)">@message</p>
     }
 
     <section class="admin-grid">
@@ -67,7 +68,7 @@ else
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var image in FilteredCarousel)
+                    @foreach (var image in carousel)
                     {
                         <tr>
                             <td class="actions-column">
@@ -96,21 +97,16 @@ else
 @code {
     private bool loading;
     private string? message;
+    private bool successMessage;
     private AdminCarouselImage[] carousel = [];
     private CarouselForm form = new();
     private string search = string.Empty;
     private string sort = "order";
     private string direction = "asc";
 
-    private IEnumerable<AdminCarouselImage> FilteredCarousel =>
-        ApplySort(carousel.Where(image =>
-            string.IsNullOrWhiteSpace(search) ||
-            image.FileName.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-            image.SortOrder.ToString().Contains(search, StringComparison.OrdinalIgnoreCase)));
-
     protected override async Task OnInitializedAsync()
     {
-        if (State.IsAuthenticated)
+        if (State.IsAdmin)
         {
             await LoadAsync();
         }
@@ -119,35 +115,40 @@ else
     private async Task LoadAsync()
     {
         loading = true;
-        carousel = await Api.GetCarouselAsync();
+        carousel = await Api.GetCarouselAsync(search, sort, direction);
         loading = false;
     }
 
     private async Task SearchAsync() => await LoadAsync();
 
-    private void SortCarousel(string column)
+    private async Task SortCarousel(string column)
     {
         if (sort == column)
         {
             direction = direction == "asc" ? "desc" : "asc";
-            return;
+        }
+        else
+        {
+            sort = column;
+            direction = "asc";
         }
 
-        sort = column;
-        direction = "asc";
+        await LoadAsync();
     }
 
     private async Task UploadAsync(InputFileChangeEventArgs args)
     {
         var result = await Api.UploadImageAsync("carousel", args.File);
-        if (result is null)
+        if (!result.Succeeded || string.IsNullOrWhiteSpace(result.Url))
         {
-            message = "Nao foi possivel enviar a imagem.";
+            message = result.Message;
+            successMessage = false;
             return;
         }
 
         form.FileName = result.Url;
-        message = "Imagem enviada.";
+        message = result.Message;
+        successMessage = true;
     }
 
     private async Task SaveAsync()
@@ -155,13 +156,18 @@ else
         if (string.IsNullOrWhiteSpace(form.FileName))
         {
             message = "Informe uma imagem.";
+            successMessage = false;
             return;
         }
 
-        await Api.SaveCarouselAsync(new AdminCarouselRequest(form.Id, form.FileName.Trim(), form.SortOrder));
-        message = "Destaque salvo.";
-        ResetForm();
-        await LoadAsync();
+        var result = await Api.SaveCarouselAsync(new AdminCarouselRequest(form.Id, form.FileName.Trim(), form.SortOrder));
+        message = result.Message;
+        successMessage = result.Succeeded;
+        if (result.Succeeded)
+        {
+            ResetForm();
+            await LoadAsync();
+        }
     }
 
     private void Edit(AdminCarouselImage image)
@@ -171,24 +177,29 @@ else
 
     private async Task DeleteAsync(int id)
     {
-        await Api.DeleteCarouselAsync(id);
-        message = "Destaque excluido.";
-        await LoadAsync();
+        var image = carousel.FirstOrDefault(item => item.Id == id);
+        if (image is not null)
+        {
+            var confirmed = await Js.InvokeAsync<bool>("confirm", $"Excluir o destaque {image.FileName}? Esta acao nao pode ser desfeita.");
+            if (!confirmed)
+            {
+                return;
+            }
+        }
+
+        var result = await Api.DeleteCarouselAsync(id);
+        message = result.Message;
+        successMessage = result.Succeeded;
+        if (result.Succeeded)
+        {
+            await LoadAsync();
+        }
     }
 
     private void ResetForm()
     {
         form = new CarouselForm();
     }
-
-    private IEnumerable<AdminCarouselImage> ApplySort(IEnumerable<AdminCarouselImage> source) =>
-        (sort, direction) switch
-        {
-            ("file", "desc") => source.OrderByDescending(image => image.FileName),
-            ("file", _) => source.OrderBy(image => image.FileName),
-            ("order", "desc") => source.OrderByDescending(image => image.SortOrder),
-            _ => source.OrderBy(image => image.SortOrder)
-        };
 
     private sealed class CarouselForm
     {

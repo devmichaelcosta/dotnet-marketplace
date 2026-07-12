@@ -26,12 +26,14 @@ else
                 <h1>Importacoes de produtos</h1>
                 <p>Importe planilhas, acompanhe processamento em background e consulte o historico completo.</p>
             </div>
-            <button class="btn btn-outline-secondary" type="button" @onclick="DownloadTemplateAsync">Baixar modelo</button>
+            <button class="btn btn-outline-secondary icon-action" type="button" title="Baixar modelo" @onclick="DownloadTemplateAsync">
+                <i class="fa fa-download"></i>
+            </button>
         </div>
 
         @if (!string.IsNullOrWhiteSpace(message))
         {
-            <p class="notice admin-imports-notice">@message</p>
+            <p class="notice admin-imports-notice @(successMessage ? "notice-success" : null)">@message</p>
         }
 
         <div class="admin-imports-layout">
@@ -57,7 +59,7 @@ else
                     <span class="admin-total-pill">@((jobs?.Total ?? 0).ToString()) registros</span>
                 </div>
 
-                <div class="admin-filter-bar">
+                <form class="admin-filter-bar" @onsubmit="SearchJobsAsync" @onsubmit:preventDefault="true">
                     <input class="form-control" placeholder="Buscar arquivo, usuario ou resumo" @bind="search" @bind:event="oninput" />
                     <select class="form-control" @bind="status">
                         <option value="">Todos os status</option>
@@ -66,8 +68,8 @@ else
                         <option value="Success">Sucesso</option>
                         <option value="Failed">Falha</option>
                     </select>
-                    <button class="btn btn-primary" type="button" @onclick="SearchJobsAsync">Buscar</button>
-                </div>
+                    <button class="btn btn-primary" type="submit">Buscar</button>
+                </form>
 
                 <div class="admin-table-scroll">
                     <table class="table admin-data-table">
@@ -98,7 +100,13 @@ else
                                     <td class="number-cell">@job.CreatedCount</td>
                                     <td class="number-cell">@job.UpdatedCount</td>
                                     <td class="number-cell error-count">@job.ErrorCount</td>
-                                    <td class="actions-column"><div class="action-cell"><button class="btn btn-sm btn-outline-secondary" @onclick="() => SelectJobAsync(job.Id)">Detalhes</button></div></td>
+                                    <td class="actions-column">
+                                        <div class="action-cell">
+                                            <button class="btn btn-sm btn-outline-secondary icon-action" type="button" title="Detalhes" @onclick="() => SelectJobAsync(job.Id)">
+                                                <i class="fa fa-eye"></i>
+                                            </button>
+                                        </div>
+                                    </td>
                                 </tr>
                             }
                         </tbody>
@@ -121,7 +129,9 @@ else
                         <h2>Importacao #@selectedJob.Id</h2>
                         <p>@selectedJob.SummaryMessage</p>
                     </div>
-                    <button class="btn btn-outline-secondary" type="button" @onclick="DownloadOriginalAsync">Baixar planilha original</button>
+                    <button class="btn btn-outline-secondary icon-action" type="button" title="Baixar planilha original" @onclick="DownloadOriginalAsync">
+                        <i class="fa fa-download"></i>
+                    </button>
                 </div>
 
                 <div class="summary-grid">
@@ -134,7 +144,7 @@ else
                     <span>Tamanho <strong>@FormatFileSize(selectedJob.FileSizeBytes)</strong></span>
                 </div>
 
-                <div class="admin-filter-bar details-filter">
+                <form class="admin-filter-bar details-filter" @onsubmit="SearchItemsAsync" @onsubmit:preventDefault="true">
                     <input class="form-control" placeholder="Buscar SKU, titulo ou erro" @bind="itemSearch" @bind:event="oninput" />
                     <select class="form-control" @bind="itemStatus">
                         <option value="">Todos os itens</option>
@@ -143,8 +153,8 @@ else
                         <option value="Error">Erro</option>
                         <option value="Ignored">Ignorado</option>
                     </select>
-                    <button class="btn btn-primary" type="button" @onclick="SearchItemsAsync">Filtrar</button>
-                </div>
+                    <button class="btn btn-primary" type="submit">Filtrar</button>
+                </form>
 
                 <div class="admin-table-scroll">
                     <table class="table admin-data-table admin-items-table">
@@ -190,6 +200,7 @@ else
     private PagedResult<ProductImportItem>? items;
     private ProductImportDetails? selectedJob;
     private string? message;
+    private bool successMessage;
     private string? search;
     private string? status;
     private string jobSort = "created";
@@ -215,9 +226,8 @@ else
     private async Task UploadAsync(InputFileChangeEventArgs args)
     {
         var result = await Api.UploadProductImportAsync(args.File);
-        message = result is null
-            ? "Nao foi possivel enviar a planilha."
-            : $"Importacao #{result.JobId} criada e enviada para processamento.";
+        message = result.Message;
+        successMessage = result.Succeeded;
         jobPage = 1;
         await LoadJobsAsync();
     }
@@ -278,9 +288,11 @@ else
         if (file is null)
         {
             message = "Nao foi possivel baixar o arquivo.";
+            successMessage = false;
             return;
         }
 
+        successMessage = true;
         await Js.InvokeVoidAsync("marketplaceUi.downloadFile", file.FileName, file.ContentType, Convert.ToBase64String(file.Bytes));
     }
 

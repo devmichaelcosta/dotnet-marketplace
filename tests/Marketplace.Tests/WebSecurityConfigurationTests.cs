@@ -23,7 +23,8 @@ public sealed class WebSecurityConfigurationTests
     [InlineData("AdminProducts.razor", "admin,vendedor")]
     [InlineData("AdminProductsCreate.razor", "admin,vendedor")]
     [InlineData("AdminProductsEdit.razor", "admin,vendedor")]
-    [InlineData("AdminSellers.razor", "admin,vendedor")]
+    [InlineData("AdminProductsSimilarProducts.razor", "admin,vendedor")]
+    [InlineData("AdminSellers.razor", "admin")]
     public void Admin_pages_are_protected_by_authorize_attributes(string fileName, string roles)
     {
         var page = ReadSource("src", "Marketplace.Web", "Components", "Pages", fileName);
@@ -118,6 +119,7 @@ public sealed class WebSecurityConfigurationTests
     [InlineData("AdminSellers.razor")]
     [InlineData("AdminRatings.razor")]
     [InlineData("AdminCarousel.razor")]
+    [InlineData("AdminProductImports.razor")]
     public void Admin_list_pages_use_datatable_search_and_icon_actions(string fileName)
     {
         var page = ReadSource("src", "Marketplace.Web", "Components", "Pages", fileName);
@@ -126,6 +128,19 @@ public sealed class WebSecurityConfigurationTests
         Assert.Contains("@onsubmit", page);
         Assert.Contains("table-sort", page);
         Assert.Contains("icon-action", page);
+    }
+
+    [Theory]
+    [InlineData("AdminUsers.razor")]
+    [InlineData("AdminSellers.razor")]
+    [InlineData("AdminProducts.razor")]
+    [InlineData("AdminCarousel.razor")]
+    [InlineData("AdminCatalog.razor")]
+    public void Admin_delete_actions_request_browser_confirmation(string fileName)
+    {
+        var page = ReadSource("src", "Marketplace.Web", "Components", "Pages", fileName);
+
+        Assert.Contains("confirm", page);
     }
 
     [Theory]
@@ -186,6 +201,41 @@ public sealed class WebSecurityConfigurationTests
         Assert.Contains("admin-data-table", page);
         Assert.Contains("@onsubmit", page);
         Assert.Contains("table-sort", page);
+    }
+
+    [Fact]
+    public void Admin_ratings_show_result_feedback_after_approval()
+    {
+        var page = ReadSource("src", "Marketplace.Web", "Components", "Pages", "AdminRatings.razor");
+        var client = ReadSource("src", "Marketplace.Web", "Services", "MarketplaceApiClient.cs");
+
+        Assert.Contains("notice-success", page);
+        Assert.Contains("var result = await Api.ApproveRatingAsync(id)", page);
+        Assert.Contains("Task<RegisterResult> ApproveRatingAsync", client);
+    }
+
+    [Fact]
+    public void Admin_product_import_filters_submit_on_enter()
+    {
+        var page = ReadSource("src", "Marketplace.Web", "Components", "Pages", "AdminProductImports.razor");
+
+        Assert.Contains("@onsubmit=\"SearchJobsAsync\"", page);
+        Assert.Contains("@onsubmit=\"SearchItemsAsync\"", page);
+        Assert.Contains("ProductImportUploadResult", ReadSource("src", "Marketplace.Web", "Services", "MarketplaceApiClient.cs"));
+    }
+
+    [Fact]
+    public void Admin_uploads_use_consistent_result_messages()
+    {
+        var client = ReadSource("src", "Marketplace.Web", "Services", "MarketplaceApiClient.cs");
+        var carousel = ReadSource("src", "Marketplace.Web", "Components", "Pages", "AdminCarousel.razor");
+        var category = ReadSource("src", "Marketplace.Web", "Components", "Shared", "AdminCategoryEditor.razor");
+        var product = ReadSource("src", "Marketplace.Web", "Components", "Shared", "AdminProductEditor.razor");
+
+        Assert.Contains("UploadImageResult", client);
+        Assert.Contains("result.Message", carousel);
+        Assert.Contains("result.Message", category);
+        Assert.Contains("result.Message", product);
     }
 
     [Theory]
@@ -250,6 +300,42 @@ public sealed class WebSecurityConfigurationTests
         Assert.Contains("direction", ordersApi);
         Assert.Contains("api/admin/ratings/pending", ratingsApi);
         Assert.Contains("sort", ratingsApi);
+    }
+
+    [Fact]
+    public void Core_admin_lists_use_server_side_sorting_and_search()
+    {
+        var client = ReadSource("src", "Marketplace.Web", "Services", "MarketplaceApiClient.cs");
+        var usersPage = ReadSource("src", "Marketplace.Web", "Components", "Pages", "AdminUsers.razor");
+        var sellersPage = ReadSource("src", "Marketplace.Web", "Components", "Pages", "AdminSellers.razor");
+        var catalogPage = ReadSource("src", "Marketplace.Web", "Components", "Pages", "AdminCatalog.razor");
+        var carouselPage = ReadSource("src", "Marketplace.Web", "Components", "Pages", "AdminCarousel.razor");
+        var adminApi = ReadSource("src", "Marketplace.Api", "Features", "Admin", "AdminEndpoints.cs");
+
+        Assert.Contains("GetAdminUsersAsync(", client);
+        Assert.Contains("GetAdminSellersAsync(", client);
+        Assert.Contains("GetAdminCategoriesAsync(", client);
+        Assert.Contains("GetAdminSubCategoriesAsync(", client);
+        Assert.Contains("GetAdminAttributesAsync(", client);
+        Assert.Contains("GetAdminUsersAsync(search, sort, direction)", usersPage);
+        Assert.Contains("GetAdminSellersAsync(search, sort, direction)", sellersPage);
+        Assert.Contains("GetAdminCategoriesAsync(categorySearch, categorySort, categoryDirection)", catalogPage);
+        Assert.Contains("GetAdminSubCategoriesAsync(subCategorySearch, subCategorySort, subCategoryDirection)", catalogPage);
+        Assert.Contains("GetAdminAttributesAsync(attributeSearch, attributeSort, attributeDirection)", catalogPage);
+        Assert.Contains("GetCarouselAsync(search, sort, direction)", carouselPage);
+        Assert.Contains("AdminListQueryPolicy", adminApi);
+    }
+
+    [Theory]
+    [InlineData("AdminOrders.razor")]
+    [InlineData("AdminRatings.razor")]
+    [InlineData("AdminCarousel.razor")]
+    [InlineData("AdminCatalog.razor")]
+    public void Admin_only_pages_check_admin_state_in_the_ui(string fileName)
+    {
+        var page = ReadSource("src", "Marketplace.Web", "Components", "Pages", fileName);
+
+        Assert.Contains("State.IsAdmin", page);
     }
 
     private static string ReadSource(params string[] relativePath)

@@ -13,7 +13,7 @@
     </div>
 </div>
 
-@if (!State.IsAuthenticated)
+@if (!State.IsAuthenticated || !State.IsAdmin)
 {
     <p>Faca login como admin para acessar esta area.</p>
 }
@@ -25,6 +25,11 @@ else
 {
     <section class="orders-layout">
         <div class="table-panel compact">
+            @if (!string.IsNullOrWhiteSpace(message))
+            {
+                <p class="notice @(successMessage ? "notice-success" : null)">@message</p>
+            }
+
             <form class="admin-filter-bar" @onsubmit="SearchAsync" @onsubmit:preventDefault="true">
                 <input class="form-control" placeholder="Cliente, login ou cidade" @bind="search" @bind:event="oninput" />
                 <button class="btn btn-primary" type="submit">Buscar</button>
@@ -97,6 +102,8 @@ else
 
 @code {
     private bool loading;
+    private string? message;
+    private bool successMessage;
     private string? search;
     private AdminOrderSummary[] orders = [];
     private AdminOrderDetails? selected;
@@ -105,7 +112,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        if (State.IsAuthenticated)
+        if (State.IsAdmin)
         {
             await LoadAsync();
         }
@@ -114,6 +121,7 @@ else
     private async Task LoadAsync()
     {
         loading = true;
+        message = null;
         selected = null;
         orders = await Api.GetAdminOrdersAsync(search, sort, direction);
         loading = false;
@@ -140,6 +148,11 @@ else
     private async Task SelectAsync(int id)
     {
         selected = await Api.GetAdminOrderDetailsAsync(id);
+        if (selected is null)
+        {
+            message = "Nao foi possivel carregar os detalhes do pedido.";
+            successMessage = false;
+        }
     }
 
 }

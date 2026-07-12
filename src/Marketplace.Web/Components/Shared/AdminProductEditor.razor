@@ -3,6 +3,7 @@
 @inject MarketplaceApiClient Api
 @inject ClientState State
 @inject NavigationManager Navigation
+@inject IJSRuntime Js
 
 @if (loading)
 {
@@ -38,7 +39,7 @@ else
 
         @if (!string.IsNullOrWhiteSpace(message))
         {
-            <p class="notice admin-import-notice">@message</p>
+            <p class="notice admin-import-notice @(successMessage ? "notice-success" : null)">@message</p>
         }
 
         <div class="admin-import-card admin-product-card">
@@ -274,6 +275,7 @@ else
 
     private bool loading = true;
     private string? message;
+    private bool successMessage;
     private AdminCategory[] categories = [];
     private AdminSeller[] sellers = [];
     private AdminAttribute[] attributes = [];
@@ -317,6 +319,7 @@ else
     {
         loading = true;
         message = null;
+        successMessage = false;
         categories = await Api.GetAdminCategoriesAsync();
         sellers = State.IsAdmin ? await Api.GetAdminSellersAsync() : [];
         attributes = await Api.GetAdminAttributesAsync();
@@ -328,6 +331,7 @@ else
             if (product is null)
             {
                 message = "Produto nao encontrado.";
+                successMessage = false;
                 loading = false;
                 return;
             }
@@ -353,18 +357,21 @@ else
         if (string.IsNullOrWhiteSpace(form.Title) || string.IsNullOrWhiteSpace(form.Description) || string.IsNullOrWhiteSpace(form.Sku))
         {
             message = "Informe titulo, descricao e SKU.";
+            successMessage = false;
             return;
         }
 
         if (form.SubCategoryId is null)
         {
             message = "Selecione uma categoria e subcategoria.";
+            successMessage = false;
             return;
         }
 
         if (State.IsAdmin && form.UserId is null)
         {
             message = "Selecione o vendedor.";
+            successMessage = false;
             return;
         }
 
@@ -388,6 +395,7 @@ else
         if (!result.Succeeded)
         {
             message = result.Message;
+            successMessage = false;
             return;
         }
 
@@ -395,6 +403,7 @@ else
         if (productId is null)
         {
             message = "Nao foi possivel salvar o produto.";
+            successMessage = false;
             return;
         }
 
@@ -405,6 +414,7 @@ else
         }
 
         message = result.Message;
+        successMessage = true;
         Navigation.NavigateTo("/admin/products?saved=edited");
     }
 
@@ -466,9 +476,10 @@ else
         foreach (var file in args.GetMultipleFiles())
         {
             var result = await Api.UploadImageAsync("products", file);
-            if (result is null)
+            if (!result.Succeeded || string.IsNullOrWhiteSpace(result.FileName))
             {
-                message = "Nao foi possivel enviar a imagem.";
+                message = result.Message;
+                successMessage = false;
                 continue;
             }
 
@@ -477,18 +488,26 @@ else
                 form.Images.Add(result.FileName);
             }
 
-            message = "Imagem enviada.";
+            message = result.Message;
+            successMessage = true;
         }
     }
 
     private async Task RemoveImage(string image)
     {
+        var confirmed = await Js.InvokeAsync<bool>("confirm", $"Excluir a imagem {image}? Esta acao nao pode ser desfeita.");
+        if (!confirmed)
+        {
+            return;
+        }
+
         if (form.Id is not null)
         {
             var result = await Api.DeleteProductImageAsync(form.Id.Value, image);
             if (!result.Succeeded)
             {
                 message = result.Message;
+                successMessage = false;
                 return;
             }
         }

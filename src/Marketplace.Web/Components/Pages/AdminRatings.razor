@@ -13,7 +13,7 @@
     </div>
 </div>
 
-@if (!State.IsAuthenticated)
+@if (!State.IsAuthenticated || !State.IsAdmin)
 {
     <p>Faca login como admin para acessar esta area.</p>
 }
@@ -23,11 +23,28 @@ else if (loading)
 }
 else if (ratings.Length == 0)
 {
+    @if (!string.IsNullOrWhiteSpace(successMessage))
+    {
+        <p class="notice notice-success">@successMessage</p>
+    }
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <p class="notice">@errorMessage</p>
+    }
     <p>Nenhuma avaliacao pendente.</p>
 }
 else
 {
     <div class="table-panel">
+        @if (!string.IsNullOrWhiteSpace(successMessage))
+        {
+            <p class="notice notice-success">@successMessage</p>
+        }
+        @if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <p class="notice">@errorMessage</p>
+        }
+
         <form class="admin-filter-bar" @onsubmit="SearchAsync" @onsubmit:preventDefault="true">
             <input class="form-control" placeholder="Buscar por produto, usuario ou titulo" @bind="search" @bind:event="oninput" />
             <button class="btn btn-outline-secondary" type="submit">Buscar</button>
@@ -74,10 +91,12 @@ else
     private string search = string.Empty;
     private string sort = "rating";
     private string direction = "desc";
+    private string? successMessage;
+    private string? errorMessage;
 
     protected override async Task OnInitializedAsync()
     {
-        if (State.IsAuthenticated)
+        if (State.IsAdmin)
         {
             await LoadAsync();
         }
@@ -110,7 +129,18 @@ else
 
     private async Task ApproveAsync(int id)
     {
-        await Api.ApproveRatingAsync(id);
+        successMessage = null;
+        errorMessage = null;
+        var result = await Api.ApproveRatingAsync(id);
+        if (result.Succeeded)
+        {
+            successMessage = result.Message;
+        }
+        else
+        {
+            errorMessage = result.Message;
+        }
+
         await LoadAsync();
     }
 }

@@ -3,6 +3,7 @@
 @rendermode InteractiveServer
 @inject MarketplaceApiClient Api
 @inject NavigationManager Navigation
+@inject IJSRuntime Js
 
 <PageTitle>Produtos</PageTitle>
 
@@ -178,8 +179,19 @@ else
 
     private async Task DeleteAsync(int id)
     {
+        var product = products.Items.FirstOrDefault(item => item.Id == id);
+        if (product is not null)
+        {
+            var confirmed = await Js.InvokeAsync<bool>("confirm", $"Excluir o produto {product.Title}? Esta acao nao pode ser desfeita.");
+            if (!confirmed)
+            {
+                return;
+            }
+        }
+
         var result = await Api.DeleteProductAsync(id);
         message = result.Message;
+        successMessage = result.Succeeded;
         if (result.Succeeded)
         {
             await LoadAsync();

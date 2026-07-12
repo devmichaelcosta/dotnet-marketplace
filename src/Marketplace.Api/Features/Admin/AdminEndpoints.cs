@@ -23,9 +23,25 @@ public static class AdminEndpoints
     {
         var group = app.MapGroup("/api/admin/users").RequireAuthorization(policy => policy.RequireRole(MarketplaceSeed.AdminRole));
 
-        group.MapGet("/", async (UserManager<ApplicationUser> userManager, CancellationToken cancellationToken) =>
+        group.MapGet("/", async (
+            string? search,
+            string? sort,
+            string? direction,
+            UserManager<ApplicationUser> userManager,
+            CancellationToken cancellationToken) =>
         {
-            var users = await userManager.Users.OrderBy(user => user.Name).ToListAsync(cancellationToken);
+            var query = userManager.Users.AsQueryable();
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                query = query.Where(user =>
+                    user.Name.Contains(search) ||
+                    user.LastName.Contains(search) ||
+                    user.UserName!.Contains(search) ||
+                    (user.Cpf != null && user.Cpf.Contains(search)));
+            }
+
+            query = AdminListQueryPolicy.ApplyUserSort(query, sort, direction);
+            var users = await query.ToListAsync(cancellationToken);
             var response = new List<UserResponse>();
             foreach (var user in users)
             {
@@ -33,6 +49,18 @@ public static class AdminEndpoints
                 response.Add(UserResponse.From(user, roles.ToArray()));
             }
 
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                response = response
+                    .Where(user =>
+                        $"{user.Name} {user.LastName}".Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                        user.Login.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                        user.Role.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                        (user.Cpf?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false))
+                    .ToList();
+            }
+
+            response = AdminListQueryPolicy.ApplyUserResponseSort(response, sort, direction);
             return Results.Ok(response);
         });
 
@@ -137,12 +165,18 @@ public static class AdminEndpoints
             return Results.NoContent();
         });
 
-        group.MapDelete("/{id:guid}", async (Guid id, UserManager<ApplicationUser> userManager) =>
+        group.MapDelete("/{id:guid}", async (Guid id, UserManager<ApplicationUser> userManager, MarketplaceDbContext db, CancellationToken cancellationToken) =>
         {
             var user = await userManager.FindByIdAsync(id.ToString());
             if (user is null)
             {
                 return Results.NotFound();
+            }
+
+            var validation = await UserDeletionPolicy.ValidateAsync(db, id, cancellationToken);
+            if (validation is not null)
+            {
+                return validation;
             }
 
             var result = await userManager.DeleteAsync(user);
@@ -156,12 +190,30 @@ public static class AdminEndpoints
     {
         var group = app.MapGroup("/api/admin/categories").RequireAuthorization(policy => policy.RequireRole(MarketplaceSeed.AdminRole));
 
-        group.MapGet("/", async (MarketplaceDbContext db, CancellationToken cancellationToken) =>
-            await db.Categories
+        group.MapGet("/", async (
+            string? search,
+            string? sort,
+            string? direction,
+            MarketplaceDbContext db,
+            CancellationToken cancellationToken) =>
+        {
+            var query = db.Categories
                 .Include(item => item.SubCategories)
-                .OrderBy(item => item.Title)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                query = query.Where(item => item.Title.Contains(search));
+            }
+
+            query = AdminListQueryPolicy.ApplyCategorySort(query, sort, direction);
+
+            var categories = await query
                 .Select(item => CategoryResponse.From(item))
-                .ToListAsync(cancellationToken));
+                .ToListAsync(cancellationToken);
+
+            return Results.Ok(categories);
+        });
 
         group.MapPost("/", async (CategoryRequest request, MarketplaceDbContext db, CancellationToken cancellationToken) =>
         {
@@ -218,7 +270,13 @@ public static class AdminEndpoints
     {
         var group = app.MapGroup("/api/admin/subcategories").RequireAuthorization(policy => policy.RequireRole(MarketplaceSeed.AdminRole));
 
-        group.MapGet("/", async (int? categoryId, MarketplaceDbContext db, CancellationToken cancellationToken) =>
+        group.MapGet("/", async (
+            int? categoryId,
+            string? search,
+            string? sort,
+            string? direction,
+            MarketplaceDbContext db,
+            CancellationToken cancellationToken) =>
         {
             var query = db.SubCategories.Include(item => item.Category).AsQueryable();
             if (categoryId is not null)
@@ -226,8 +284,16 @@ public static class AdminEndpoints
                 query = query.Where(item => item.CategoryId == categoryId);
             }
 
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                query = query.Where(item =>
+                    item.Title.Contains(search) ||
+                    item.Category!.Title.Contains(search));
+            }
+
+            query = AdminListQueryPolicy.ApplySubCategorySort(query, sort, direction);
+
             return await query
-                .OrderBy(item => item.Title)
                 .Select(item => SubCategoryResponse.From(item))
                 .ToListAsync(cancellationToken);
         });
@@ -286,9 +352,16 @@ public static class AdminEndpoints
     {
         var group = app.MapGroup("/api/admin/attributes").RequireAuthorization(policy => policy.RequireRole(MarketplaceSeed.AdminRole));
 
-        group.MapGet("/", async (MarketplaceDbContext db, CancellationToken cancellationToken) =>
-            await db.Attributes
-                .OrderBy(item => item.Name)
+        group.MapGet("/", async (
+            string? search,
+            string? sort,
+            string? direction,
+            MarketplaceDbContext db,
+            CancellationToken cancellationToken) =>
+            await AdminListQueryPolicy.ApplyAttributeSort(
+                    db.Attributes.Where(item => string.IsNullOrWhiteSpace(search) || item.Name.Contains(search)),
+                    sort,
+                    direction)
                 .Select(item => new AttributeResponse(item.Id, item.Name))
                 .ToListAsync(cancellationToken));
 
@@ -341,12 +414,27 @@ public static class AdminEndpoints
 
     private static void MapSellerEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/admin/sellers").RequireAuthorization(policy => policy.RequireRole(MarketplaceSeed.AdminRole, MarketplaceSeed.SellerRole));
+        var group = app.MapGroup("/api/admin/sellers").RequireAuthorization(policy => policy.RequireRole(MarketplaceSeed.AdminRole));
 
-        group.MapGet("/", async (MarketplaceDbContext db, CancellationToken cancellationToken) =>
-            await db.Sellers
+        group.MapGet("/", async (
+            string? search,
+            string? sort,
+            string? direction,
+            MarketplaceDbContext db,
+            CancellationToken cancellationToken) =>
+            await AdminListQueryPolicy.ApplySellerSort(
+                    db.Sellers
                 .Include(item => item.User)
-                .OrderBy(item => item.User!.Name)
+                .Where(item =>
+                    string.IsNullOrWhiteSpace(search) ||
+                    item.User!.Name.Contains(search) ||
+                    item.User.LastName.Contains(search) ||
+                    (item.Email != null && item.Email.Contains(search)) ||
+                    (item.Company != null && item.Company.Contains(search)) ||
+                    (item.FantasyName != null && item.FantasyName.Contains(search)) ||
+                    (item.Cnpj != null && item.Cnpj.Contains(search))),
+                    sort,
+                    direction)
                 .Select(item => SellerResponse.From(item))
                 .ToListAsync(cancellationToken));
 
@@ -443,6 +531,12 @@ public static class AdminEndpoints
                 return Results.NotFound();
             }
 
+            var validation = await SellerDeletionPolicy.ValidateAsync(db, seller.UserId, cancellationToken);
+            if (validation is not null)
+            {
+                return validation;
+            }
+
             db.Sellers.Remove(seller);
             await db.SaveChangesAsync(cancellationToken);
 
@@ -463,9 +557,19 @@ public static class AdminEndpoints
     {
         var group = app.MapGroup("/api/admin/carousel").RequireAuthorization(policy => policy.RequireRole(MarketplaceSeed.AdminRole));
 
-        group.MapGet("/", async (MarketplaceDbContext db, CancellationToken cancellationToken) =>
-            await db.CarouselImages
-                .OrderBy(item => item.SortOrder)
+        group.MapGet("/", async (
+            string? search,
+            string? sort,
+            string? direction,
+            MarketplaceDbContext db,
+            CancellationToken cancellationToken) =>
+            await AdminListQueryPolicy.ApplyCarouselSort(
+                    db.CarouselImages.Where(item =>
+                        string.IsNullOrWhiteSpace(search) ||
+                        item.FileName.Contains(search) ||
+                        item.SortOrder.ToString().Contains(search)),
+                    sort,
+                    direction)
                 .Select(item => new CarouselResponse(item.Id, item.FileName, item.SortOrder))
                 .ToListAsync(cancellationToken));
 
@@ -759,6 +863,121 @@ public static class AdminPasswordResetPolicy
 
         return errors;
     }
+}
+
+public static class SellerDeletionPolicy
+{
+    public static async Task<IResult?> ValidateAsync(MarketplaceDbContext db, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var hasProducts = await db.Products.AnyAsync(product => product.UserId == userId, cancellationToken);
+        if (hasProducts)
+        {
+            return Results.Problem(
+                "Nao e possivel excluir o vendedor enquanto existirem produtos vinculados.",
+                statusCode: StatusCodes.Status409Conflict);
+        }
+
+        return null;
+    }
+}
+
+public static class UserDeletionPolicy
+{
+    public static async Task<IResult?> ValidateAsync(MarketplaceDbContext db, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var hasSeller = await db.Sellers.AnyAsync(seller => seller.UserId == userId, cancellationToken);
+        var hasProducts = await db.Products.AnyAsync(product => product.UserId == userId, cancellationToken);
+        var hasOrders = await db.Orders.AnyAsync(order => order.UserId == userId, cancellationToken);
+        var hasRatings = await db.ProductRatings.AnyAsync(rating => rating.UserId == userId, cancellationToken);
+        var hasLikes = await db.ProductLikes.AnyAsync(like => like.UserId == userId, cancellationToken);
+        var hasCarts = await db.Carts.AnyAsync(cart => cart.UserId == userId, cancellationToken);
+
+        if (hasSeller || hasProducts || hasOrders || hasRatings || hasLikes || hasCarts)
+        {
+            return Results.Problem(
+                "Nao e possivel excluir o usuario porque existem vinculos administrativos ou transacionais.",
+                statusCode: StatusCodes.Status409Conflict);
+        }
+
+        return null;
+    }
+}
+
+public static class AdminListQueryPolicy
+{
+    public static IQueryable<ApplicationUser> ApplyUserSort(IQueryable<ApplicationUser> query, string? sort, string? direction) =>
+        (sort?.ToLowerInvariant(), IsAscending(direction)) switch
+        {
+            ("login", true) => query.OrderBy(user => user.UserName),
+            ("login", false) => query.OrderByDescending(user => user.UserName),
+            ("cpf", true) => query.OrderBy(user => user.Cpf).ThenBy(user => user.Name),
+            ("cpf", false) => query.OrderByDescending(user => user.Cpf).ThenByDescending(user => user.Name),
+            ("name", false) => query.OrderByDescending(user => user.Name).ThenByDescending(user => user.LastName),
+            _ => query.OrderBy(user => user.Name).ThenBy(user => user.LastName)
+        };
+
+    public static List<UserResponse> ApplyUserResponseSort(IEnumerable<UserResponse> users, string? sort, string? direction)
+    {
+        var query = users.AsEnumerable();
+        return (sort?.ToLowerInvariant(), IsAscending(direction)) switch
+        {
+            ("role", true) => query.OrderBy(user => user.Role).ThenBy(user => user.Name).ToList(),
+            ("role", false) => query.OrderByDescending(user => user.Role).ThenByDescending(user => user.Name).ToList(),
+            _ => query.ToList()
+        };
+    }
+
+    public static IQueryable<Category> ApplyCategorySort(IQueryable<Category> query, string? sort, string? direction) =>
+        (sort?.ToLowerInvariant(), IsAscending(direction)) switch
+        {
+            ("subcategories", true) => query.OrderBy(category => category.SubCategories.Count).ThenBy(category => category.Title),
+            ("subcategories", false) => query.OrderByDescending(category => category.SubCategories.Count).ThenByDescending(category => category.Title),
+            ("title", false) => query.OrderByDescending(category => category.Title),
+            _ => query.OrderBy(category => category.Title)
+        };
+
+    public static IQueryable<SubCategory> ApplySubCategorySort(IQueryable<SubCategory> query, string? sort, string? direction) =>
+        (sort?.ToLowerInvariant(), IsAscending(direction)) switch
+        {
+            ("category", true) => query.OrderBy(subCategory => subCategory.Category!.Title).ThenBy(subCategory => subCategory.Title),
+            ("category", false) => query.OrderByDescending(subCategory => subCategory.Category!.Title).ThenByDescending(subCategory => subCategory.Title),
+            ("title", false) => query.OrderByDescending(subCategory => subCategory.Title),
+            _ => query.OrderBy(subCategory => subCategory.Title)
+        };
+
+    public static IQueryable<AttributeDefinition> ApplyAttributeSort(IQueryable<AttributeDefinition> query, string? sort, string? direction) =>
+        (sort?.ToLowerInvariant(), IsAscending(direction)) switch
+        {
+            ("id", true) => query.OrderBy(attribute => attribute.Id),
+            ("id", false) => query.OrderByDescending(attribute => attribute.Id),
+            ("name", false) => query.OrderByDescending(attribute => attribute.Name),
+            _ => query.OrderBy(attribute => attribute.Name)
+        };
+
+    public static IQueryable<Seller> ApplySellerSort(IQueryable<Seller> query, string? sort, string? direction) =>
+        (sort?.ToLowerInvariant(), IsAscending(direction)) switch
+        {
+            ("company", true) => query.OrderBy(seller => seller.FantasyName ?? seller.Company).ThenBy(seller => seller.User!.Name),
+            ("company", false) => query.OrderByDescending(seller => seller.FantasyName ?? seller.Company).ThenByDescending(seller => seller.User!.Name),
+            ("email", true) => query.OrderBy(seller => seller.Email).ThenBy(seller => seller.User!.Name),
+            ("email", false) => query.OrderByDescending(seller => seller.Email).ThenByDescending(seller => seller.User!.Name),
+            ("cnpj", true) => query.OrderBy(seller => seller.Cnpj).ThenBy(seller => seller.User!.Name),
+            ("cnpj", false) => query.OrderByDescending(seller => seller.Cnpj).ThenByDescending(seller => seller.User!.Name),
+            ("name", false) => query.OrderByDescending(seller => seller.User!.Name).ThenByDescending(seller => seller.User!.LastName),
+            _ => query.OrderBy(seller => seller.User!.Name).ThenBy(seller => seller.User!.LastName)
+        };
+
+    public static IQueryable<CarouselImage> ApplyCarouselSort(IQueryable<CarouselImage> query, string? sort, string? direction) =>
+        (sort?.ToLowerInvariant(), IsAscending(direction)) switch
+        {
+            ("file", true) => query.OrderBy(image => image.FileName),
+            ("file", false) => query.OrderByDescending(image => image.FileName),
+            ("order", false) => query.OrderByDescending(image => image.SortOrder),
+            _ => query.OrderBy(image => image.SortOrder)
+        };
+
+    private static bool IsAscending(string? direction) =>
+        string.Equals(direction, "asc", StringComparison.OrdinalIgnoreCase);
 }
 
 public sealed record SellerRequest(

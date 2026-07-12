@@ -117,15 +117,15 @@ else
     private async Task UploadImageAsync(InputFileChangeEventArgs args)
     {
         var result = await Api.UploadImageAsync("categories", args.File);
-        if (result is null)
+        if (!result.Succeeded || string.IsNullOrWhiteSpace(result.Url))
         {
-            message = "Nao foi possivel enviar a imagem.";
+            message = result.Message;
             successMessage = false;
             return;
         }
 
         form.Image = result.Url;
-        message = "Imagem enviada.";
+        message = result.Message;
         successMessage = true;
     }
 

@@ -3,6 +3,7 @@
 @rendermode InteractiveServer
 @inject MarketplaceApiClient Api
 @inject ClientState State
+@inject IJSRuntime Js
 
 <PageTitle>Usuarios</PageTitle>
 
@@ -25,7 +26,7 @@ else
 {
     @if (!string.IsNullOrWhiteSpace(message))
     {
-        <p class="notice">@message</p>
+        <p class="notice @(successMessage ? "notice-success" : null)">@message</p>
     }
 
     <section class="admin-grid">
@@ -103,7 +104,7 @@ else
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var user in FilteredUsers)
+                    @foreach (var user in users)
                     {
                         <tr>
                             <td class="actions-column">
@@ -134,20 +135,13 @@ else
 @code {
     private bool loading;
     private string? message;
+    private bool successMessage;
     private AdminUser[] users = [];
     private UserForm form = new();
     private PasswordResetForm passwordForm = new();
     private string search = string.Empty;
     private string sort = "name";
     private string direction = "asc";
-
-    private IEnumerable<AdminUser> FilteredUsers =>
-        ApplySort(users.Where(user =>
-            string.IsNullOrWhiteSpace(search) ||
-            $"{user.Name} {user.LastName}".Contains(search, StringComparison.OrdinalIgnoreCase) ||
-            user.Login.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-            user.Role.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-            (user.Cpf?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)));
 
     protected override async Task OnInitializedAsync()
     {
@@ -160,22 +154,25 @@ else
     private async Task LoadAsync()
     {
         loading = true;
-        users = await Api.GetAdminUsersAsync();
+        users = await Api.GetAdminUsersAsync(search, sort, direction);
         loading = false;
     }
 
     private async Task SearchAsync() => await LoadAsync();
 
-    private void SortUsers(string column)
+    private async Task SortUsers(string column)
     {
         if (sort == column)
         {
             direction = direction == "asc" ? "desc" : "asc";
-            return;
+        }
+        else
+        {
+            sort = column;
+            direction = "asc";
         }
 
-        sort = column;
-        direction = "asc";
+        await LoadAsync();
     }
 
     private async Task SaveAsync()
@@ -183,17 +180,20 @@ else
         if (string.IsNullOrWhiteSpace(form.Name) || string.IsNullOrWhiteSpace(form.Login))
         {
             message = "Informe nome e login.";
+            successMessage = false;
             return;
         }
 
         if (form.Id is null && string.IsNullOrWhiteSpace(form.Password))
         {
             message = "Senha obrigatoria para novo usuario.";
+            successMessage = false;
             return;
         }
 
         var result = await Api.SaveUserAsync(new AdminUserRequest(form.Id, form.Name.Trim(), form.LastName.Trim(), form.Login.Trim(), form.Password, form.Cpf, form.Role));
         message = result.Message;
+        successMessage = result.Succeeded;
         if (result.Succeeded)
         {
             ResetForm();
@@ -233,11 +233,13 @@ else
         if (string.IsNullOrWhiteSpace(passwordForm.Password))
         {
             message = "Informe a nova senha.";
+            successMessage = false;
             return;
         }
 
         var result = await Api.ResetUserPasswordAsync(passwordForm.UserId.Value, passwordForm.Password);
         message = result.Message;
+        successMessage = result.Succeeded;
         if (result.Succeeded)
         {
             CancelPasswordReset();
@@ -251,8 +253,19 @@ else
 
     private async Task DeleteAsync(Guid id)
     {
+        var user = users.FirstOrDefault(item => item.Id == id);
+        if (user is not null)
+        {
+            var confirmed = await Js.InvokeAsync<bool>("confirm", $"Excluir o usuario {user.Name} {user.LastName}? Esta acao nao pode ser desfeita.");
+            if (!confirmed)
+            {
+                return;
+            }
+        }
+
         var result = await Api.DeleteUserAsync(id);
         message = result.Message;
+        successMessage = result.Succeeded;
         if (result.Succeeded)
         {
             await LoadAsync();
@@ -263,20 +276,6 @@ else
     {
         form = new UserForm();
     }
-
-    private IEnumerable<AdminUser> ApplySort(IEnumerable<AdminUser> source) =>
-        (sort, direction) switch
-        {
-            ("login", "desc") => source.OrderByDescending(user => user.Login),
-            ("login", _) => source.OrderBy(user => user.Login),
-            ("role", "desc") => source.OrderByDescending(user => user.Role).ThenByDescending(user => user.Name),
-            ("role", _) => source.OrderBy(user => user.Role).ThenBy(user => user.Name),
-            ("cpf", "desc") => source.OrderByDescending(user => user.Cpf),
-            ("cpf", _) => source.OrderBy(user => user.Cpf),
-            ("name", "desc") => source.OrderByDescending(user => user.Name).ThenByDescending(user => user.LastName),
-            _ => source.OrderBy(user => user.Name).ThenBy(user => user.LastName)
-        };
-
     private sealed class UserForm
     {
         public Guid? Id { get; set; }

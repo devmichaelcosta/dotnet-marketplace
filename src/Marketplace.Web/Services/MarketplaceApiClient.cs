@@ -321,7 +321,7 @@ public sealed class MarketplaceApiClient(HttpClient http, ClientState state)
             : new RegisterResult(false, await ReadProblemMessageAsync(response, cancellationToken));
     }
 
-    public async Task<ProductImportCreated?> UploadProductImportAsync(IBrowserFile file, CancellationToken cancellationToken = default)
+    public async Task<ProductImportUploadResult> UploadProductImportAsync(IBrowserFile file, CancellationToken cancellationToken = default)
     {
         using var content = new MultipartFormDataContent();
         using var fileContent = new StreamContent(file.OpenReadStream(5 * 1024 * 1024, cancellationToken));
@@ -333,10 +333,14 @@ public sealed class MarketplaceApiClient(HttpClient http, ClientState state)
         using var response = await http.SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
-            return null;
+            return new ProductImportUploadResult(false, await ReadProblemMessageAsync(response, cancellationToken), null);
         }
 
-        return await response.Content.ReadFromJsonAsync<ProductImportCreated>(cancellationToken);
+        var result = await response.Content.ReadFromJsonAsync<ProductImportCreated>(cancellationToken);
+        var message = result is null
+            ? "Importacao criada e enviada para processamento."
+            : $"Importacao #{result.JobId} criada e enviada para processamento.";
+        return new ProductImportUploadResult(true, message, result?.JobId);
     }
 
     public async Task<PagedResult<ProductImportJob>?> GetProductImportsAsync(
@@ -475,9 +479,29 @@ public sealed class MarketplaceApiClient(HttpClient http, ClientState state)
             : new RegisterResult(false, await ReadProblemMessageAsync(response, cancellationToken));
     }
 
-    public async Task<AdminCategory[]> GetAdminCategoriesAsync(CancellationToken cancellationToken = default)
+    public async Task<AdminCategory[]> GetAdminCategoriesAsync(
+        string? search = null,
+        string? sort = null,
+        string? direction = null,
+        CancellationToken cancellationToken = default)
     {
-        using var request = NewRequest(HttpMethod.Get, "api/admin/categories");
+        var url = "api/admin/categories";
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            url += $"?search={Uri.EscapeDataString(search)}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(sort))
+        {
+            url += $"{(url.Contains('?') ? '&' : '?')}sort={Uri.EscapeDataString(sort)}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(direction))
+        {
+            url += $"{(url.Contains('?') ? '&' : '?')}direction={Uri.EscapeDataString(direction)}";
+        }
+
+        using var request = NewRequest(HttpMethod.Get, url);
         using var response = await http.SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
@@ -508,9 +532,29 @@ public sealed class MarketplaceApiClient(HttpClient http, ClientState state)
             : new RegisterResult(false, await ReadProblemMessageAsync(response, cancellationToken));
     }
 
-    public async Task<AdminSubCategory[]> GetAdminSubCategoriesAsync(CancellationToken cancellationToken = default)
+    public async Task<AdminSubCategory[]> GetAdminSubCategoriesAsync(
+        string? search = null,
+        string? sort = null,
+        string? direction = null,
+        CancellationToken cancellationToken = default)
     {
-        using var request = NewRequest(HttpMethod.Get, "api/admin/subcategories");
+        var url = "api/admin/subcategories";
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            url += $"?search={Uri.EscapeDataString(search)}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(sort))
+        {
+            url += $"{(url.Contains('?') ? '&' : '?')}sort={Uri.EscapeDataString(sort)}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(direction))
+        {
+            url += $"{(url.Contains('?') ? '&' : '?')}direction={Uri.EscapeDataString(direction)}";
+        }
+
+        using var request = NewRequest(HttpMethod.Get, url);
         using var response = await http.SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
@@ -541,9 +585,29 @@ public sealed class MarketplaceApiClient(HttpClient http, ClientState state)
             : new RegisterResult(false, await ReadProblemMessageAsync(response, cancellationToken));
     }
 
-    public async Task<AdminAttribute[]> GetAdminAttributesAsync(CancellationToken cancellationToken = default)
+    public async Task<AdminAttribute[]> GetAdminAttributesAsync(
+        string? search = null,
+        string? sort = null,
+        string? direction = null,
+        CancellationToken cancellationToken = default)
     {
-        using var request = NewRequest(HttpMethod.Get, "api/admin/attributes");
+        var url = "api/admin/attributes";
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            url += $"?search={Uri.EscapeDataString(search)}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(sort))
+        {
+            url += $"{(url.Contains('?') ? '&' : '?')}sort={Uri.EscapeDataString(sort)}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(direction))
+        {
+            url += $"{(url.Contains('?') ? '&' : '?')}direction={Uri.EscapeDataString(direction)}";
+        }
+
+        using var request = NewRequest(HttpMethod.Get, url);
         using var response = await http.SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
@@ -574,9 +638,29 @@ public sealed class MarketplaceApiClient(HttpClient http, ClientState state)
             : new RegisterResult(false, await ReadProblemMessageAsync(response, cancellationToken));
     }
 
-    public async Task<AdminUser[]> GetAdminUsersAsync(CancellationToken cancellationToken = default)
+    public async Task<AdminUser[]> GetAdminUsersAsync(
+        string? search = null,
+        string? sort = null,
+        string? direction = null,
+        CancellationToken cancellationToken = default)
     {
-        using var request = NewRequest(HttpMethod.Get, "api/admin/users");
+        var url = "api/admin/users";
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            url += $"?search={Uri.EscapeDataString(search)}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(sort))
+        {
+            url += $"{(url.Contains('?') ? '&' : '?')}sort={Uri.EscapeDataString(sort)}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(direction))
+        {
+            url += $"{(url.Contains('?') ? '&' : '?')}direction={Uri.EscapeDataString(direction)}";
+        }
+
+        using var request = NewRequest(HttpMethod.Get, url);
         using var response = await http.SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
@@ -617,9 +701,29 @@ public sealed class MarketplaceApiClient(HttpClient http, ClientState state)
             : new RegisterResult(false, await ReadProblemMessageAsync(response, cancellationToken));
     }
 
-    public async Task<AdminSeller[]> GetAdminSellersAsync(CancellationToken cancellationToken = default)
+    public async Task<AdminSeller[]> GetAdminSellersAsync(
+        string? search = null,
+        string? sort = null,
+        string? direction = null,
+        CancellationToken cancellationToken = default)
     {
-        using var request = NewRequest(HttpMethod.Get, "api/admin/sellers");
+        var url = "api/admin/sellers";
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            url += $"?search={Uri.EscapeDataString(search)}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(sort))
+        {
+            url += $"{(url.Contains('?') ? '&' : '?')}sort={Uri.EscapeDataString(sort)}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(direction))
+        {
+            url += $"{(url.Contains('?') ? '&' : '?')}direction={Uri.EscapeDataString(direction)}";
+        }
+
+        using var request = NewRequest(HttpMethod.Get, url);
         using var response = await http.SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
@@ -670,9 +774,29 @@ public sealed class MarketplaceApiClient(HttpClient http, ClientState state)
             : new RegisterResult(false, await ReadProblemMessageAsync(response, cancellationToken));
     }
 
-    public async Task<AdminCarouselImage[]> GetCarouselAsync(CancellationToken cancellationToken = default)
+    public async Task<AdminCarouselImage[]> GetCarouselAsync(
+        string? search = null,
+        string? sort = null,
+        string? direction = null,
+        CancellationToken cancellationToken = default)
     {
-        using var request = NewRequest(HttpMethod.Get, "api/admin/carousel");
+        var url = "api/admin/carousel";
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            url += $"?search={Uri.EscapeDataString(search)}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(sort))
+        {
+            url += $"{(url.Contains('?') ? '&' : '?')}sort={Uri.EscapeDataString(sort)}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(direction))
+        {
+            url += $"{(url.Contains('?') ? '&' : '?')}direction={Uri.EscapeDataString(direction)}";
+        }
+
+        using var request = NewRequest(HttpMethod.Get, url);
         using var response = await http.SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
@@ -682,24 +806,28 @@ public sealed class MarketplaceApiClient(HttpClient http, ClientState state)
         return await response.Content.ReadFromJsonAsync<AdminCarouselImage[]>(cancellationToken) ?? [];
     }
 
-    public async Task SaveCarouselAsync(AdminCarouselRequest carousel, CancellationToken cancellationToken = default)
+    public async Task<RegisterResult> SaveCarouselAsync(AdminCarouselRequest carousel, CancellationToken cancellationToken = default)
     {
         var method = carousel.Id is null ? HttpMethod.Post : HttpMethod.Put;
         var url = carousel.Id is null ? "api/admin/carousel" : $"api/admin/carousel/{carousel.Id}";
         using var request = NewRequest(method, url);
         request.Content = JsonContent.Create(new { carousel.FileName, carousel.SortOrder });
         using var response = await http.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        return response.IsSuccessStatusCode
+            ? new RegisterResult(true, "Destaque salvo.")
+            : new RegisterResult(false, await ReadProblemMessageAsync(response, cancellationToken));
     }
 
-    public async Task DeleteCarouselAsync(int id, CancellationToken cancellationToken = default)
+    public async Task<RegisterResult> DeleteCarouselAsync(int id, CancellationToken cancellationToken = default)
     {
         using var request = NewRequest(HttpMethod.Delete, $"api/admin/carousel/{id}");
         using var response = await http.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        return response.IsSuccessStatusCode
+            ? new RegisterResult(true, "Destaque excluido.")
+            : new RegisterResult(false, await ReadProblemMessageAsync(response, cancellationToken));
     }
 
-    public async Task<UploadResult?> UploadImageAsync(string scope, IBrowserFile file, CancellationToken cancellationToken = default)
+    public async Task<UploadImageResult> UploadImageAsync(string scope, IBrowserFile file, CancellationToken cancellationToken = default)
     {
         using var content = new MultipartFormDataContent();
         using var fileContent = new StreamContent(file.OpenReadStream(5 * 1024 * 1024, cancellationToken));
@@ -711,10 +839,16 @@ public sealed class MarketplaceApiClient(HttpClient http, ClientState state)
         using var response = await http.SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
-            return null;
+            return new UploadImageResult(false, await ReadProblemMessageAsync(response, cancellationToken), null, null);
         }
 
-        return await response.Content.ReadFromJsonAsync<UploadResult>(cancellationToken);
+        var result = await response.Content.ReadFromJsonAsync<UploadResult>(cancellationToken);
+        if (result is null)
+        {
+            return new UploadImageResult(false, "Nao foi possivel processar o upload da imagem.", null, null);
+        }
+
+        return new UploadImageResult(true, "Imagem enviada.", result.FileName, result.Url);
     }
 
     public async Task<PendingRating[]> GetPendingRatingsAsync(string? search = null, string? sort = null, string? direction = null, CancellationToken cancellationToken = default)
@@ -745,11 +879,13 @@ public sealed class MarketplaceApiClient(HttpClient http, ClientState state)
         return await response.Content.ReadFromJsonAsync<PendingRating[]>(cancellationToken) ?? [];
     }
 
-    public async Task ApproveRatingAsync(int id, CancellationToken cancellationToken = default)
+    public async Task<RegisterResult> ApproveRatingAsync(int id, CancellationToken cancellationToken = default)
     {
         using var request = NewRequest(HttpMethod.Post, $"api/admin/ratings/{id}/approve");
         using var response = await http.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        return response.IsSuccessStatusCode
+            ? new RegisterResult(true, "Avaliacao aprovada.")
+            : new RegisterResult(false, await ReadProblemMessageAsync(response, cancellationToken));
     }
 
     public async Task<OrderSummary[]> GetOrdersAsync(CancellationToken cancellationToken = default)
@@ -882,6 +1018,7 @@ public sealed record AdminProductRequest(
 public sealed record SaveProductResponse(int Id);
 public sealed record SaveProductResult(bool Succeeded, string Message, int? Id);
 public sealed record ProductImportCreated(int JobId);
+public sealed record ProductImportUploadResult(bool Succeeded, string Message, int? JobId);
 public sealed record PagedResult<T>(T[] Items, int Total, int Page, int PageSize);
 public sealed record ProductImportJob(
     int Id,
@@ -972,6 +1109,7 @@ public sealed record AdminSellerCreateRequest(
 public sealed record AdminCarouselImage(int Id, string FileName, int SortOrder);
 public sealed record AdminCarouselRequest(int? Id, string FileName, int SortOrder);
 public sealed record UploadResult(string FileName, string Url);
+public sealed record UploadImageResult(bool Succeeded, string Message, string? FileName, string? Url);
 public sealed record ProductSearchResponse(ProductSummary[] Items, int Total, int Page, int PageSize);
 public sealed record ProductSummary(int Id, string Title, decimal Price, int Stock, bool Offer, string? Image, string? Seller);
 public sealed record ProductDetailsResponse(ProductDetails Product, ProductSummary[] SimilarProducts);

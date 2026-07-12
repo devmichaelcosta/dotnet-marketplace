@@ -1,8 +1,9 @@
 @page "/admin/sellers"
-@attribute [Authorize(Roles = "admin,vendedor")]
+@attribute [Authorize(Roles = "admin")]
 @rendermode InteractiveServer
 @inject MarketplaceApiClient Api
 @inject ClientState State
+@inject IJSRuntime Js
 
 <PageTitle>Vendedores</PageTitle>
 
@@ -13,9 +14,9 @@
     </div>
 </div>
 
-@if (!State.IsAuthenticated)
+@if (!State.IsAuthenticated || !State.IsAdmin)
 {
-    <p>Faca login como admin ou vendedor para acessar esta area.</p>
+    <p>Faca login como admin para acessar esta area.</p>
 }
 else if (loading)
 {
@@ -25,7 +26,7 @@ else
 {
     @if (!string.IsNullOrWhiteSpace(message))
     {
-        <p class="notice">@message</p>
+        <p class="notice @(successMessage ? "notice-success" : null)">@message</p>
     }
 
     <section class="admin-grid">
@@ -114,7 +115,7 @@ else
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var seller in FilteredSellers)
+                    @foreach (var seller in sellers)
                     {
                         <tr>
                             <td class="actions-column">
@@ -142,20 +143,12 @@ else
 @code {
     private bool loading;
     private string? message;
+    private bool successMessage;
     private AdminSeller[] sellers = [];
     private SellerForm form = new();
     private string search = string.Empty;
     private string sort = "name";
     private string direction = "asc";
-
-    private IEnumerable<AdminSeller> FilteredSellers =>
-        ApplySort(sellers.Where(seller =>
-            string.IsNullOrWhiteSpace(search) ||
-            $"{seller.Name} {seller.LastName}".Contains(search, StringComparison.OrdinalIgnoreCase) ||
-            (seller.FantasyName?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false) ||
-            (seller.Company?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false) ||
-            (seller.Email?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false) ||
-            (seller.Cnpj?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)));
 
     protected override async Task OnInitializedAsync()
     {
@@ -168,22 +161,25 @@ else
     private async Task LoadAsync()
     {
         loading = true;
-        sellers = await Api.GetAdminSellersAsync();
+        sellers = await Api.GetAdminSellersAsync(search, sort, direction);
         loading = false;
     }
 
     private async Task SearchAsync() => await LoadAsync();
 
-    private void SortSellers(string column)
+    private async Task SortSellers(string column)
     {
         if (sort == column)
         {
             direction = direction == "asc" ? "desc" : "asc";
-            return;
+        }
+        else
+        {
+            sort = column;
+            direction = "asc";
         }
 
-        sort = column;
-        direction = "asc";
+        await LoadAsync();
     }
 
     private async Task SaveAsync()
@@ -192,6 +188,7 @@ else
         {
             var result = await Api.CreateSellerAsync(form.ToCreateRequest());
             message = result.Message;
+            successMessage = result.Succeeded;
             if (!result.Succeeded)
             {
                 return;
@@ -201,6 +198,7 @@ else
         {
             var result = await Api.SaveSellerAsync(form.ToRequest());
             message = result.Message;
+            successMessage = result.Succeeded;
             if (!result.Succeeded)
             {
                 return;
@@ -213,8 +211,19 @@ else
 
     private async Task DeleteAsync(Guid id)
     {
+        var seller = sellers.FirstOrDefault(item => item.Id == id);
+        if (seller is not null)
+        {
+            var confirmed = await Js.InvokeAsync<bool>("confirm", $"Excluir o vendedor {seller.Name} {seller.LastName}? Esta acao nao pode ser desfeita.");
+            if (!confirmed)
+            {
+                return;
+            }
+        }
+
         var result = await Api.DeleteSellerAsync(id);
         message = result.Message;
+        successMessage = result.Succeeded;
         if (result.Succeeded)
         {
             ResetForm();
@@ -231,19 +240,6 @@ else
     {
         form = new SellerForm();
     }
-
-    private IEnumerable<AdminSeller> ApplySort(IEnumerable<AdminSeller> source) =>
-        (sort, direction) switch
-        {
-            ("company", "desc") => source.OrderByDescending(seller => seller.FantasyName ?? seller.Company),
-            ("company", _) => source.OrderBy(seller => seller.FantasyName ?? seller.Company),
-            ("email", "desc") => source.OrderByDescending(seller => seller.Email),
-            ("email", _) => source.OrderBy(seller => seller.Email),
-            ("cnpj", "desc") => source.OrderByDescending(seller => seller.Cnpj),
-            ("cnpj", _) => source.OrderBy(seller => seller.Cnpj),
-            ("name", "desc") => source.OrderByDescending(seller => seller.Name).ThenByDescending(seller => seller.LastName),
-            _ => source.OrderBy(seller => seller.Name).ThenBy(seller => seller.LastName)
-        };
 
     private sealed class SellerForm
     {

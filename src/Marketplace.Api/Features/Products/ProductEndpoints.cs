@@ -160,7 +160,7 @@ public static class ProductEndpoints
 
         group.MapDelete("/{id:int}", async (int id, HttpContext http, MarketplaceDbContext db, CancellationToken cancellationToken) =>
         {
-            var product = await db.Products.FindAsync([id], cancellationToken);
+            var product = await db.Products.Include(item => item.Images).FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
             if (product is null)
             {
                 return Results.NotFound();
@@ -171,8 +171,32 @@ public static class ProductEndpoints
                 return Results.Forbid();
             }
 
+            var validation = await ProductDeletionPolicy.ValidateAsync(db, product.Id, cancellationToken);
+            if (validation is not null)
+            {
+                return validation;
+            }
+
+            await db.CartItems.Where(item => item.ProductId == id).ExecuteDeleteAsync(cancellationToken);
+            await db.SimilarProducts.Where(item => item.ParentProductId == id || item.ChildProductId == id).ExecuteDeleteAsync(cancellationToken);
+            await db.ProductLikes.Where(item => item.ProductId == id).ExecuteDeleteAsync(cancellationToken);
+            await db.ProductRatings.Where(item => item.ProductId == id).ExecuteDeleteAsync(cancellationToken);
+            await db.ProductAttributeValues.Where(item => item.ProductId == id).ExecuteDeleteAsync(cancellationToken);
+            await db.ProductImages.Where(item => item.ProductId == id).ExecuteDeleteAsync(cancellationToken);
             db.Products.Remove(product);
             await db.SaveChangesAsync(cancellationToken);
+
+            var environment = http.RequestServices.GetRequiredService<IWebHostEnvironment>();
+            var basePath = environment.WebRootPath ?? Path.Combine(environment.ContentRootPath, "wwwroot");
+            foreach (var imageName in product.Images.Select(image => Path.GetFileName(image.FileName)))
+            {
+                var absolutePath = Path.Combine(basePath, "uploads", "products", imageName);
+                if (File.Exists(absolutePath))
+                {
+                    File.Delete(absolutePath);
+                }
+            }
+
             return Results.NoContent();
         });
 
@@ -397,6 +421,22 @@ public static class ProductPolicy
         }
 
         return errors;
+    }
+}
+
+public static class ProductDeletionPolicy
+{
+    public static async Task<IResult?> ValidateAsync(MarketplaceDbContext db, int productId, CancellationToken cancellationToken = default)
+    {
+        var hasOrderItems = await db.OrderItems.AnyAsync(item => item.ProductId == productId, cancellationToken);
+        if (hasOrderItems)
+        {
+            return Results.Problem(
+                "Nao e possivel excluir o produto porque ele ja possui itens em pedidos.",
+                statusCode: StatusCodes.Status409Conflict);
+        }
+
+        return null;
     }
 }
 

@@ -5,6 +5,7 @@
 @inject MarketplaceApiClient Api
 @inject ClientState State
 @inject NavigationManager Navigation
+@inject IJSRuntime Js
 
 <PageTitle>Catalogo administrativo</PageTitle>
 
@@ -22,7 +23,7 @@
         </div>
     </div>
 
-    @if (!State.IsAuthenticated)
+    @if (!State.IsAuthenticated || !State.IsAdmin)
     {
         <div class="admin-import-card">Faca login como admin para acessar esta area.</div>
     }
@@ -65,7 +66,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var category in FilteredCategories)
+                            @foreach (var category in categories)
                             {
                                 <tr>
                                     <td class="actions-column">
@@ -113,7 +114,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach (var subCategory in FilteredSubCategories)
+                                @foreach (var subCategory in subCategories)
                                 {
                                     <tr>
                                         <td class="actions-column">
@@ -159,7 +160,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach (var catalogAttribute in FilteredAttributes)
+                                @foreach (var catalogAttribute in attributes)
                                 {
                                     <tr>
                                         <td class="actions-column">
@@ -201,22 +202,6 @@
     private string subCategoryDirection = "asc";
     private string attributeSort = "name";
     private string attributeDirection = "asc";
-    private IEnumerable<AdminCategory> FilteredCategories =>
-        ApplyCategorySort(categories.Where(category =>
-            string.IsNullOrWhiteSpace(categorySearch) ||
-            category.Title.Contains(categorySearch, StringComparison.OrdinalIgnoreCase)));
-
-    private IEnumerable<AdminSubCategory> FilteredSubCategories =>
-        ApplySubCategorySort(subCategories.Where(subCategory =>
-            string.IsNullOrWhiteSpace(subCategorySearch) ||
-            subCategory.Title.Contains(subCategorySearch, StringComparison.OrdinalIgnoreCase) ||
-            subCategory.Category.Contains(subCategorySearch, StringComparison.OrdinalIgnoreCase)));
-
-    private IEnumerable<AdminAttribute> FilteredAttributes =>
-        ApplyAttributeSort(attributes.Where(catalogAttribute =>
-            string.IsNullOrWhiteSpace(attributeSearch) ||
-            catalogAttribute.Name.Contains(attributeSearch, StringComparison.OrdinalIgnoreCase)));
-
     protected override async Task OnInitializedAsync()
     {
         if (Navigation.Uri.Contains("saved=category", StringComparison.OrdinalIgnoreCase))
@@ -235,7 +220,7 @@
             successMessage = true;
         }
 
-        if (State.IsAuthenticated)
+        if (State.IsAdmin)
         {
             await LoadAsync();
         }
@@ -244,9 +229,9 @@
     private async Task LoadAsync()
     {
         loading = true;
-        categories = await Api.GetAdminCategoriesAsync();
-        subCategories = await Api.GetAdminSubCategoriesAsync();
-        attributes = await Api.GetAdminAttributesAsync();
+        categories = await Api.GetAdminCategoriesAsync(categorySearch, categorySort, categoryDirection);
+        subCategories = await Api.GetAdminSubCategoriesAsync(subCategorySearch, subCategorySort, subCategoryDirection);
+        attributes = await Api.GetAdminAttributesAsync(attributeSearch, attributeSort, attributeDirection);
         loading = false;
     }
 
@@ -255,20 +240,33 @@
 
     private async Task SearchCategoriesAsync() => await LoadAsync();
 
-    private void SortCategories(string column)
+    private async Task SortCategories(string column)
     {
         if (categorySort == column)
         {
             categoryDirection = categoryDirection == "asc" ? "desc" : "asc";
-            return;
+        }
+        else
+        {
+            categorySort = column;
+            categoryDirection = "asc";
         }
 
-        categorySort = column;
-        categoryDirection = "asc";
+        await LoadAsync();
     }
 
     private async Task DeleteCategoryAsync(int id)
     {
+        var category = categories.FirstOrDefault(item => item.Id == id);
+        if (category is not null)
+        {
+            var confirmed = await Js.InvokeAsync<bool>("confirm", $"Excluir a categoria {category.Title}? Esta acao vai remover a categoria e suas subcategorias.");
+            if (!confirmed)
+            {
+                return;
+            }
+        }
+
         var result = await Api.DeleteCategoryAsync(id);
         message = result.Message;
         successMessage = result.Succeeded;
@@ -283,6 +281,16 @@
 
     private async Task DeleteSubCategoryAsync(int id)
     {
+        var subCategory = subCategories.FirstOrDefault(item => item.Id == id);
+        if (subCategory is not null)
+        {
+            var confirmed = await Js.InvokeAsync<bool>("confirm", $"Excluir a subcategoria {subCategory.Title}? Esta acao nao pode ser desfeita.");
+            if (!confirmed)
+            {
+                return;
+            }
+        }
+
         var result = await Api.DeleteSubCategoryAsync(id);
         message = result.Message;
         successMessage = result.Succeeded;
@@ -294,16 +302,19 @@
 
     private async Task SearchSubCategoriesAsync() => await LoadAsync();
 
-    private void SortSubCategories(string column)
+    private async Task SortSubCategories(string column)
     {
         if (subCategorySort == column)
         {
             subCategoryDirection = subCategoryDirection == "asc" ? "desc" : "asc";
-            return;
+        }
+        else
+        {
+            subCategorySort = column;
+            subCategoryDirection = "asc";
         }
 
-        subCategorySort = column;
-        subCategoryDirection = "asc";
+        await LoadAsync();
     }
 
     private void CreateAttribute() => Navigation.NavigateTo("/admin/catalog/attributes/create");
@@ -311,6 +322,16 @@
 
     private async Task DeleteAttributeAsync(int id)
     {
+        var attribute = attributes.FirstOrDefault(item => item.Id == id);
+        if (attribute is not null)
+        {
+            var confirmed = await Js.InvokeAsync<bool>("confirm", $"Excluir o atributo {attribute.Name}? Esta acao nao pode ser desfeita.");
+            if (!confirmed)
+            {
+                return;
+            }
+        }
+
         var result = await Api.DeleteAttributeAsync(id);
         message = result.Message;
         successMessage = result.Succeeded;
@@ -322,36 +343,20 @@
 
     private async Task SearchAttributesAsync() => await LoadAsync();
 
-    private void SortAttributes(string column)
+    private async Task SortAttributes(string column)
     {
         if (attributeSort == column)
         {
             attributeDirection = attributeDirection == "asc" ? "desc" : "asc";
-            return;
+        }
+        else
+        {
+            attributeSort = column;
+            attributeDirection = "asc";
         }
 
-        attributeSort = column;
-        attributeDirection = "asc";
+        await LoadAsync();
     }
-
-    private IEnumerable<AdminCategory> ApplyCategorySort(IEnumerable<AdminCategory> source) =>
-        categorySort == "title" && categoryDirection == "desc"
-            ? source.OrderByDescending(category => category.Title)
-            : source.OrderBy(category => category.Title);
-
-    private IEnumerable<AdminSubCategory> ApplySubCategorySort(IEnumerable<AdminSubCategory> source) =>
-        subCategorySort switch
-        {
-            "category" when subCategoryDirection == "desc" => source.OrderByDescending(subCategory => subCategory.Category).ThenByDescending(subCategory => subCategory.Title),
-            "category" => source.OrderBy(subCategory => subCategory.Category).ThenBy(subCategory => subCategory.Title),
-            _ when subCategoryDirection == "desc" => source.OrderByDescending(subCategory => subCategory.Title),
-            _ => source.OrderBy(subCategory => subCategory.Title)
-        };
-
-    private IEnumerable<AdminAttribute> ApplyAttributeSort(IEnumerable<AdminAttribute> source) =>
-        attributeDirection == "desc"
-            ? source.OrderByDescending(catalogAttribute => catalogAttribute.Name)
-            : source.OrderBy(catalogAttribute => catalogAttribute.Name);
 
     private enum AdminCatalogTab
     {
