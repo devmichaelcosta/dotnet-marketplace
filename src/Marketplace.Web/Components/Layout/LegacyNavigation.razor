@@ -27,12 +27,12 @@
         <div class="login-nav amazon-account">
             @if (ClientState.IsAuthenticated)
             {
-                <span>Ola, <a class="a-primary" href="profile">@ClientState.UserName</a></span>
+                <span>Olá, <a class="a-primary" href="profile">@ClientState.UserName</a></span>
                 <button class="btn btn-link a-primary p-0" type="button" @onclick="SignOut">Sair</button>
             }
             else
             {
-                <span>Ola, faca seu <a class="a-primary" href="login">login</a></span>
+                <span>Olá, faça seu <a class="a-primary" href="login">login</a></span>
                 <strong>Conta e listas</strong>
             }
         </div>
@@ -123,9 +123,9 @@
                 }
                 @if (ClientState.IsAdmin)
                 {
-                    <a href="admin/product-imports" @onclick="CloseDrawer">Importacoes</a>
+                    <a href="admin/product-imports" @onclick="CloseDrawer">Importações</a>
                     <a href="admin/catalog" @onclick="CloseDrawer">Categorias</a>
-                    <a href="admin/users" @onclick="CloseDrawer">Usuarios</a>
+                    <a href="admin/users" @onclick="CloseDrawer">Usuários</a>
                 }
             </section>
         }

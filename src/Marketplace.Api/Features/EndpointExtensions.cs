@@ -97,7 +97,7 @@ public static class EndpointExtensions
             item.Quantity,
             item.UnitPrice,
             SubTotal = item.UnitPrice * item.Quantity,
-            Image = item.Product.Images.FirstOrDefault()?.FileName
+            Image = Catalog.ProductImagePath.Normalize(item.Product.Images.FirstOrDefault()?.FileName)
         }).ToArray();
 
         return new

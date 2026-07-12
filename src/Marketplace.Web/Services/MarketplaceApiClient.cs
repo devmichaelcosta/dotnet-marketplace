@@ -158,31 +158,46 @@ public sealed class MarketplaceApiClient(HttpClient http, ClientState state)
 
     private static async Task<string> ReadProblemMessageAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
-        var fallback = "Nao foi possivel criar a conta.";
+        var problem = await ReadProblemAsync(response, cancellationToken, "Nao foi possivel concluir a operacao.");
+        return problem.Message;
+    }
+
+    private static async Task<(string Message, Dictionary<string, string[]> Errors)> ReadProblemAsync(HttpResponseMessage response, CancellationToken cancellationToken, string fallback)
+    {
         var content = await response.Content.ReadAsStringAsync(cancellationToken);
         if (string.IsNullOrWhiteSpace(content))
         {
-            return fallback;
+            return (fallback, new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase));
         }
 
         try
         {
             using var document = JsonDocument.Parse(content);
-            if (document.RootElement.TryGetProperty("errors", out var errors))
+            var parsedErrors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+
+            if (document.RootElement.TryGetProperty("errors", out var errorNode))
             {
-                foreach (var property in errors.EnumerateObject())
+                foreach (var property in errorNode.EnumerateObject())
                 {
                     if (property.Value.ValueKind == JsonValueKind.Array)
                     {
-                        var message = property.Value.EnumerateArray()
+                        var messages = property.Value.EnumerateArray()
                             .Select(item => item.GetString())
-                            .FirstOrDefault(item => !string.IsNullOrWhiteSpace(item));
+                            .Where(item => !string.IsNullOrWhiteSpace(item))
+                            .Select(item => item!)
+                            .ToArray();
 
-                        if (!string.IsNullOrWhiteSpace(message))
+                        if (messages.Length > 0)
                         {
-                            return message!;
+                            parsedErrors[property.Name] = messages;
                         }
                     }
+                }
+
+                var firstMessage = parsedErrors.Values.SelectMany(items => items).FirstOrDefault();
+                if (!string.IsNullOrWhiteSpace(firstMessage))
+                {
+                    return (firstMessage, parsedErrors);
                 }
             }
 
@@ -191,16 +206,16 @@ public sealed class MarketplaceApiClient(HttpClient http, ClientState state)
                 var message = title.GetString();
                 if (!string.IsNullOrWhiteSpace(message))
                 {
-                    return message;
+                    return (message, parsedErrors);
                 }
             }
         }
         catch (JsonException)
         {
-            return fallback;
+            return (fallback, new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase));
         }
 
-        return fallback;
+        return (fallback, new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase));
     }
 
     public async Task<UserProfile?> GetProfileAsync(CancellationToken cancellationToken = default)
@@ -296,11 +311,12 @@ public sealed class MarketplaceApiClient(HttpClient http, ClientState state)
         using var response = await http.SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
-            return new SaveProductResult(false, await ReadProblemMessageAsync(response, cancellationToken), null);
+            var problem = await ReadProblemAsync(response, cancellationToken, "Nao foi possivel salvar o produto.");
+            return new SaveProductResult(false, problem.Message, null, problem.Errors);
         }
 
         var result = await response.Content.ReadFromJsonAsync<SaveProductResponse>(cancellationToken);
-        return new SaveProductResult(true, "Produto salvo.", result?.Id);
+        return new SaveProductResult(true, "Produto salvo.", result?.Id, null);
     }
 
     public async Task<RegisterResult> DeleteProductAsync(int id, CancellationToken cancellationToken = default)
@@ -670,6 +686,18 @@ public sealed class MarketplaceApiClient(HttpClient http, ClientState state)
         return await response.Content.ReadFromJsonAsync<AdminUser[]>(cancellationToken) ?? [];
     }
 
+    public async Task<AdminUser?> GetAdminUserAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        using var request = NewRequest(HttpMethod.Get, $"api/admin/users/{id}");
+        using var response = await http.SendAsync(request, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            return null;
+        }
+
+        return await response.Content.ReadFromJsonAsync<AdminUser>(cancellationToken);
+    }
+
     public async Task<RegisterResult> SaveUserAsync(AdminUserRequest user, CancellationToken cancellationToken = default)
     {
         var method = user.Id is null ? HttpMethod.Post : HttpMethod.Put;
@@ -1016,7 +1044,7 @@ public sealed record AdminProductRequest(
     string[] Images,
     ProductAttributeValueRequest[] Attributes);
 public sealed record SaveProductResponse(int Id);
-public sealed record SaveProductResult(bool Succeeded, string Message, int? Id);
+public sealed record SaveProductResult(bool Succeeded, string Message, int? Id, IReadOnlyDictionary<string, string[]>? Errors);
 public sealed record ProductImportCreated(int JobId);
 public sealed record ProductImportUploadResult(bool Succeeded, string Message, int? JobId);
 public sealed record PagedResult<T>(T[] Items, int Total, int Page, int PageSize);

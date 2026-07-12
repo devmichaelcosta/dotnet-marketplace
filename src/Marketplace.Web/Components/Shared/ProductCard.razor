@@ -1,5 +1,7 @@
 ﻿@inject MarketplaceApiClient Api
 
+@inject ClientState ClientState
+@inject NavigationManager Navigation
 <article class="market-product-card">
     <a class="market-product-media" href="products/@Product.Id" aria-label="Ver @Product.Title">
         @if (!string.IsNullOrWhiteSpace(Product.Image))
@@ -41,7 +43,12 @@
             else
             {
                 <a class="btn btn-outline-secondary" href="products/@Product.Id" aria-label="Ver detalhes de @Product.Title">Detalhes</a>
-                <a class="btn btn-outline-secondary wishlist-button" href="products/@Product.Id" aria-label="Salvar @Product.Title para depois">♡</a>
+                <button class="btn btn-outline-secondary wishlist-button @(liked ? "is-liked" : null)"
+                        type="button"
+                        aria-label="@(liked ? $"Remover {Product.Title} dos curtidos" : $"Salvar {Product.Title} nos curtidos")"
+                        aria-pressed="@liked"
+                        disabled="@favoriteBusy"
+                        @onclick="ToggleLikeAsync"></button>
             }
         </div>
     </div>
@@ -57,8 +64,47 @@
     [Parameter]
     public EventCallback<int> OnRemove { get; set; }
 
+    private bool liked;
+    private bool favoriteBusy;
+
     private async Task RemoveAsync()
     {
         await OnRemove.InvokeAsync(Product.Id);
+    }
+
+    private async Task ToggleLikeAsync()
+    {
+        if (favoriteBusy)
+        {
+            return;
+        }
+
+        if (!ClientState.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        favoriteBusy = true;
+        try
+        {
+            if (liked)
+            {
+                await Api.UnlikeProductAsync(Product.Id);
+                liked = false;
+                return;
+            }
+
+            await Api.LikeProductAsync(Product.Id);
+            liked = true;
+        }
+        catch (HttpRequestException)
+        {
+            Navigation.NavigateTo("/login");
+        }
+        finally
+        {
+            favoriteBusy = false;
+        }
     }
 }

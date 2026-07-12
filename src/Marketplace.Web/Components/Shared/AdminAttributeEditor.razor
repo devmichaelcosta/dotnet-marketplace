@@ -19,6 +19,7 @@ else
                 <p>Informe os dados do atributo e clique em salvar.</p>
                 <nav class="nav-breadcrumb admin-breadcrumb">
                     <span><a href="/admin/catalog">Catalogo</a></span>
+                    <span><a href="/admin/catalog/attributes">Atributos</a></span>
                     <span>@(IsEditing ? "Editar atributo" : "Novo atributo")</span>
                 </nav>
             </div>
@@ -40,7 +41,7 @@ else
                     </div>
 
                     <div class="col-12 d-flex gap-2 justify-content-end">
-                        <a class="btn btn-outline-secondary" href="/admin/catalog">Voltar</a>
+                        <a class="btn btn-outline-secondary" href="/admin/catalog/attributes">Voltar</a>
                         <button class="btn btn-primary" type="submit">Salvar atributo</button>
                     </div>
                 </div>
@@ -108,7 +109,7 @@ else
         var result = await Api.SaveAttributeAsync(new AdminAttributeRequest(form.Id, form.Name.Trim()));
         if (result.Succeeded)
         {
-            Navigation.NavigateTo("/admin/catalog?saved=attribute");
+            Navigation.NavigateTo("/admin/catalog/attributes?saved=attribute");
             return;
         }
 

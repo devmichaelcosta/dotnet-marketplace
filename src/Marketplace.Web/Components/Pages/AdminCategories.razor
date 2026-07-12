@@ -1,0 +1,161 @@
+@page "/admin/catalog/categories"
+@attribute [Authorize(Roles = "admin")]
+@rendermode InteractiveServer
+@inject MarketplaceApiClient Api
+@inject ClientState State
+@inject IJSRuntime Js
+@inject NavigationManager Navigation
+
+<PageTitle>Categorias</PageTitle>
+
+<section class="admin-imports-shell admin-catalog-shell">
+    <div class="admin-imports-hero">
+        <div>
+            <span>Admin</span>
+            <h1>Categorias</h1>
+            <p>Modulo independente para cadastro e manutencao de categorias.</p>
+            <nav class="nav-breadcrumb admin-breadcrumb">
+                <span><a href="/admin/catalog">Catalogo</a></span>
+                <span>Categorias</span>
+            </nav>
+        </div>
+        <div>
+            <a class="btn btn-primary" href="/admin/catalog/categories/create">Nova categoria</a>
+        </div>
+    </div>
+
+    @if (!State.IsAuthenticated || !State.IsAdmin)
+    {
+        <div class="admin-import-card">Faca login como admin para acessar esta area.</div>
+    }
+    else if (loading)
+    {
+        <div class="admin-import-card">Carregando categorias...</div>
+    }
+    else
+    {
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <p class="notice @(successMessage ? "notice-success" : null)">@message</p>
+        }
+
+        <section class="admin-import-card admin-table-card">
+            <div class="admin-table-header">
+                <div>
+                    <span class="admin-card-eyebrow">Lista</span>
+                    <h2>Categorias cadastradas</h2>
+                </div>
+                <span class="admin-total-pill">@categories.Length registros</span>
+            </div>
+
+            <form class="admin-filter-bar admin-catalog-filter" @onsubmit="SearchAsync" @onsubmit:preventDefault="true">
+                <input class="form-control" placeholder="Buscar categoria" @bind="search" @bind:event="oninput" />
+                <button class="btn btn-outline-secondary" type="submit">Buscar</button>
+            </form>
+
+            <div class="admin-table-scroll">
+                <table class="table admin-data-table">
+                    <thead>
+                        <tr>
+                            <th class="actions-column"></th>
+                            <th><button class="table-sort" type="button" @onclick='() => SortAsync("title")'>Categoria</button></th>
+                            <th>Imagem</th>
+                            <th class="number-cell">Subcategorias</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var category in categories)
+                        {
+                            <tr>
+                                <td class="actions-column">
+                                    <div class="action-cell">
+                                        <a class="btn btn-sm btn-outline-secondary icon-action" title="Editar" href="@($"/admin/catalog/categories/{category.Id}/edit")">
+                                            <i class="fa fa-pen"></i>
+                                        </a>
+                                        <button class="btn btn-sm btn-outline-danger icon-action" type="button" title="Excluir" @onclick="() => DeleteAsync(category.Id)">
+                                            <i class="fa fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                                <td>@category.Title</td>
+                                <td class="file-cell">@category.Image</td>
+                                <td class="number-cell">
+                                    <a class="admin-inline-link" href="@($"/admin/catalog/subcategories?categoryId={category.Id}")">@category.SubCategories.Length</a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+</section>
+
+@code {
+    private bool loading;
+    private string? message;
+    private bool successMessage;
+    private AdminCategory[] categories = [];
+    private string search = string.Empty;
+    private string sort = "title";
+    private string direction = "asc";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Navigation.Uri.Contains("saved=category", StringComparison.OrdinalIgnoreCase))
+        {
+            message = "Categoria salva com sucesso.";
+            successMessage = true;
+        }
+
+        if (State.IsAdmin)
+        {
+            await LoadAsync();
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        categories = await Api.GetAdminCategoriesAsync(search, sort, direction);
+        loading = false;
+    }
+
+    private async Task SearchAsync() => await LoadAsync();
+
+    private async Task SortAsync(string column)
+    {
+        if (sort == column)
+        {
+            direction = direction == "asc" ? "desc" : "asc";
+        }
+        else
+        {
+            sort = column;
+            direction = "asc";
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync(int id)
+    {
+        var category = categories.FirstOrDefault(item => item.Id == id);
+        if (category is not null)
+        {
+            var confirmed = await Js.InvokeAsync<bool>("confirm", $"Excluir a categoria {category.Title}? Esta acao vai remover a categoria e suas subcategorias.");
+            if (!confirmed)
+            {
+                return;
+            }
+        }
+
+        var result = await Api.DeleteCategoryAsync(id);
+        message = result.Message;
+        successMessage = result.Succeeded;
+        if (result.Succeeded)
+        {
+            await LoadAsync();
+        }
+    }
+}

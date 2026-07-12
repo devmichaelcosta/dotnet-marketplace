@@ -1,0 +1,7 @@
+@page "/admin/users/create"
+@attribute [Authorize(Roles = "admin")]
+@rendermode InteractiveServer
+
+<PageTitle>Novo usuario</PageTitle>
+
+<AdminUserEditor />

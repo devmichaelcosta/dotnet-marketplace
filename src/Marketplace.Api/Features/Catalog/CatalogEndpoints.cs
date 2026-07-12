@@ -1,3 +1,4 @@
+using Marketplace.Api.Features.Products.Admin.Shared;
 using Marketplace.Api.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -99,7 +100,14 @@ public sealed record StateOption(int Id, string Name, string Abbreviation);
 public sealed record ProductSummary(int Id, string Title, decimal Price, int Stock, bool Offer, string? Image, string Seller)
 {
     public static ProductSummary From(Domain.Product product) =>
-        new(product.Id, product.Title, product.Price, product.Stock, product.Offer, product.Images.FirstOrDefault()?.FileName, product.User?.Name ?? string.Empty);
+        new(
+            product.Id,
+            product.Title,
+            product.Price,
+            product.Stock,
+            product.Offer,
+            ProductImagePath.Normalize(product.Images.FirstOrDefault()?.FileName),
+            product.User?.Name ?? string.Empty);
 }
 
 public sealed record ProductDetails(
@@ -129,10 +137,28 @@ public sealed record ProductDetails(
             product.User?.Name ?? string.Empty,
             product.SubCategory?.Category?.Title,
             product.SubCategory?.Title,
-            product.Images.Select(image => image.FileName).ToArray(),
+            product.Images
+                .Select(image => ProductImagePath.Normalize(image.FileName))
+                .Where(image => !string.IsNullOrWhiteSpace(image))
+                .Select(image => image!)
+                .ToArray(),
             product.AttributeValues.Select(value => new ProductAttributeValue(value.AttributeDefinition!.Name, value.Value)).ToArray(),
             product.Ratings.Where(rating => rating.Approved).Select(rating => new ProductRatingResponse(rating.Title, rating.Description, rating.Rating, rating.Recommended)).ToArray());
 }
 
 public sealed record ProductAttributeValue(string Attribute, string Value);
 public sealed record ProductRatingResponse(string Title, string Description, string Rating, bool Recommended);
+
+internal static class ProductImagePath
+{
+    public static string? Normalize(string? value)
+    {
+        var fileName = Marketplace.Api.Features.Products.ProductImageStorage.NormalizeFileName(value);
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            return null;
+        }
+
+        return $"/uploads/products/{fileName}";
+    }
+}

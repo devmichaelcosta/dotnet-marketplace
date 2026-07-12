@@ -1,4 +1,6 @@
 ﻿@using System.Linq
+@using System.Linq.Expressions
+@using System.ComponentModel.DataAnnotations
 @implements IDisposable
 @inject MarketplaceApiClient Api
 @inject ClientState State
@@ -39,83 +41,102 @@ else
 
         @if (!string.IsNullOrWhiteSpace(message))
         {
-            <p class="notice admin-import-notice @(successMessage ? "notice-success" : null)">@message</p>
+            <p class="notice admin-import-notice @(successMessage ? "notice-success" : null)" data-testid="admin-product-editor-notice">@message</p>
         }
 
         <div class="admin-import-card admin-product-card">
-            <EditForm Model="form" OnValidSubmit="SaveAsync" FormName="product-form">
+            <EditForm EditContext="editContext" OnSubmit="HandleSubmitAsync" FormName="product-form" data-testid="admin-product-form">
                 <DataAnnotationsValidator />
+
+                @if (formErrors.Count > 0)
+                {
+                    <div class="alert alert-danger" role="alert">
+                        <strong>Ocorreram erros ao salvar o produto.</strong>
+                        <ul class="mb-0 mt-2">
+                            @foreach (var error in formErrors)
+                            {
+                                <li>@error</li>
+                            }
+                        </ul>
+                    </div>
+                }
 
                 <div class="row g-3">
                     <div class="col-md-6">
                         <label class="form-label" for="title">Titulo</label>
-                        <InputText id="title" class="form-control" @bind-Value="form.Title" />
+                        <InputText id="title" class="@FieldClass(() => form.Title)" data-testid="admin-product-title" @bind-Value="form.Title" />
+                        <ValidationMessage class="validation-message" For="() => form.Title" />
                     </div>
 
                     @if (State.IsAdmin)
                     {
                         <div class="col-md-3">
                             <label class="form-label" for="userId">Vendedor</label>
-                            <select id="userId" class="form-control" value="@form.UserId?.ToString()" @onchange="OnSellerChanged">
+                            <select id="userId" class="@FieldClass(() => form.UserId)" data-testid="admin-product-seller" @bind="form.UserId">
                                 <option value="">Selecione o vendedor...</option>
                                 @foreach (var seller in sellers)
                                 {
                                     <option value="@seller.UserId">@seller.Name</option>
                                 }
                             </select>
+                            <ValidationMessage class="validation-message" For="() => form.UserId" />
                         </div>
                     }
 
                     <div class="col-md-3">
                         <label class="form-label" for="price">Preco a vista</label>
-                        <InputNumber id="price" class="form-control" @bind-Value="form.Price" />
+                        <InputNumber id="price" class="form-control" data-testid="admin-product-price" @bind-Value="form.Price" />
                     </div>
 
                     <div class="col-md-3">
                         <label class="form-label" for="sku">SKU</label>
-                        <InputText id="sku" class="form-control" @bind-Value="form.Sku" />
+                        <InputText id="sku" class="@FieldClass(() => form.Sku)" data-testid="admin-product-sku" @bind-Value="form.Sku" />
+                        <ValidationMessage class="validation-message" For="() => form.Sku" />
                     </div>
 
                     <div class="col-md-3">
                         <label class="form-label" for="stock">Estoque</label>
-                        <InputNumber id="stock" class="form-control" @bind-Value="form.Stock" />
+                        <InputNumber id="stock" class="form-control" data-testid="admin-product-stock" @bind-Value="form.Stock" />
                     </div>
 
                     <div class="col-md-6">
                         <label class="form-label d-block">Oferta</label>
                         <div class="btn-group" role="group" aria-label="Oferta do produto">
-                            <input class="btn-check" type="radio" name="offer" id="offerYes" checked="@form.Offer" @onchange="() => form.Offer = true" />
+                            <input class="btn-check" type="radio" name="offer" id="offerYes" checked="@form.Offer" data-testid="admin-product-offer-yes" @onchange="() => form.Offer = true" />
                             <label class="btn btn-outline-secondary" for="offerYes">Sim</label>
-                            <input class="btn-check" type="radio" name="offer" id="offerNo" checked="@(!form.Offer)" @onchange="() => form.Offer = false" />
+                            <input class="btn-check" type="radio" name="offer" id="offerNo" checked="@(!form.Offer)" data-testid="admin-product-offer-no" @onchange="() => form.Offer = false" />
                             <label class="btn btn-outline-secondary" for="offerNo">Nao</label>
                         </div>
                     </div>
 
                     <div class="col-md-6">
                         <label class="form-label" for="categoryId">Categoria</label>
-                        <select id="categoryId" class="form-control" value="@form.CategoryId?.ToString()" @onchange="OnCategoryChanged">
+                        <select id="categoryId" class="@CategoryFieldClass()" data-testid="admin-product-category" @bind="form.CategoryId" @bind:after="OnCategoryChanged">
                             <option value="">Selecione</option>
                             @foreach (var category in categories)
                             {
                                 <option value="@category.Id">@category.Title</option>
                             }
                         </select>
+                        <ValidationMessage class="validation-message" For="() => form.CategoryId" />
                     </div>
 
                     <div class="col-md-6">
                         <label class="form-label" for="subCategoryId">Subcategoria</label>
-                        <select id="subCategoryId" class="form-control" value="@form.SubCategoryId?.ToString()" @onchange="OnSubCategoryChanged" disabled="@(!AvailableSubCategories.Any())">
+                        <select id="subCategoryId" class="@CategoryFieldClass()" data-testid="admin-product-subcategory" @bind="form.SubCategoryId" disabled="@(!AvailableSubCategories.Any())">
                             <option value="">Selecione</option>
                             @foreach (var subCategory in AvailableSubCategories)
                             {
                                 <option value="@subCategory.Id">@subCategory.Title</option>
                             }
                         </select>
+                        <ValidationMessage class="validation-message" For="() => form.SubCategoryId" />
                     </div>
 
                     <div class="col-12">
                         <label class="form-label" for="description">Descricao</label>
-                        <InputTextArea id="description" class="form-control" style="min-height:150px;" @bind-Value="form.Description" />
+                        <InputTextArea id="description" class="@FieldClass(() => form.Description)" data-testid="admin-product-description" style="min-height:150px;" @bind-Value="form.Description" />
+                        <ValidationMessage class="validation-message" For="() => form.Description" />
                     </div>
 
                     <div class="col-12">
@@ -200,7 +221,7 @@ else
 
                     <div class="col-12 d-flex gap-2 justify-content-end">
                         <a class="btn btn-outline-secondary" href="/admin/products">Voltar</a>
-                        <button type="submit" class="btn btn-primary">Salvar produto</button>
+                        <button type="submit" class="btn btn-primary" data-testid="admin-product-save">Salvar produto</button>
                     </div>
                 </div>
             </EditForm>
@@ -280,6 +301,10 @@ else
     private AdminSeller[] sellers = [];
     private AdminAttribute[] attributes = [];
     private ProductEditorForm form = ProductEditorForm.Create();
+    private EditContext editContext = default!;
+    private ValidationMessageStore? validationMessageStore;
+    private readonly List<string> formErrors = [];
+    private bool submitAttempted;
 
     private bool attributeModalOpen;
     private string attributeSearch = string.Empty;
@@ -332,6 +357,7 @@ else
             {
                 message = "Produto nao encontrado.";
                 successMessage = false;
+                ResetValidationState();
                 loading = false;
                 return;
             }
@@ -339,6 +365,7 @@ else
             form = ProductEditorForm.From(product, categories);
         }
 
+        ResetValidationState();
         loading = false;
     }
 
@@ -352,26 +379,19 @@ else
         });
     }
 
-    private async Task SaveAsync()
+    private async Task HandleSubmitAsync(EditContext _)
     {
-        if (string.IsNullOrWhiteSpace(form.Title) || string.IsNullOrWhiteSpace(form.Description) || string.IsNullOrWhiteSpace(form.Sku))
-        {
-            message = "Informe titulo, descricao e SKU.";
-            successMessage = false;
-            return;
-        }
+        submitAttempted = true;
+        message = null;
+        successMessage = false;
+        formErrors.Clear();
+        ClearCustomValidationMessages();
 
-        if (form.SubCategoryId is null)
+        var formIsValid = editContext.Validate();
+        ValidateConditionalFields();
+        if (!formIsValid || HasCustomValidationErrors())
         {
-            message = "Selecione uma categoria e subcategoria.";
-            successMessage = false;
-            return;
-        }
-
-        if (State.IsAdmin && form.UserId is null)
-        {
-            message = "Selecione o vendedor.";
-            successMessage = false;
+            editContext.NotifyValidationStateChanged();
             return;
         }
 
@@ -394,27 +414,16 @@ else
         var result = await Api.SaveProductAsync(request);
         if (!result.Succeeded)
         {
-            message = result.Message;
-            successMessage = false;
-            return;
-        }
-
-        var productId = form.Id ?? result.Id;
-        if (productId is null)
-        {
-            message = "Nao foi possivel salvar o produto.";
-            successMessage = false;
+            ApplyServerErrors(result);
             return;
         }
 
         if (form.Id is null)
         {
-            Navigation.NavigateTo($"/admin/products/{productId.Value}/edit");
+            Navigation.NavigateTo("/admin/products?saved=created");
             return;
         }
 
-        message = result.Message;
-        successMessage = true;
         Navigation.NavigateTo("/admin/products?saved=edited");
     }
 
@@ -515,17 +524,124 @@ else
         form.Images.Remove(image);
     }
 
-    private void OnCategoryChanged(ChangeEventArgs args)
+    private void OnCategoryChanged()
     {
-        form.CategoryId = ParseInt(args.Value?.ToString());
         if (form.SubCategoryId is not null && !AvailableSubCategories.Any(item => item.Id == form.SubCategoryId))
         {
             form.SubCategoryId = null;
         }
     }
 
-    private void OnSubCategoryChanged(ChangeEventArgs args) => form.SubCategoryId = ParseInt(args.Value?.ToString());
-    private void OnSellerChanged(ChangeEventArgs args) => form.UserId = ParseGuid(args.Value?.ToString());
+    private void ResetValidationState()
+    {
+        if (editContext is not null)
+        {
+            editContext.OnFieldChanged -= HandleFieldChanged;
+        }
+
+        editContext = new EditContext(form);
+        validationMessageStore = new ValidationMessageStore(editContext);
+        editContext.OnFieldChanged += HandleFieldChanged;
+        submitAttempted = false;
+        formErrors.Clear();
+    }
+
+    private void HandleFieldChanged(object? sender, FieldChangedEventArgs args)
+    {
+        if (validationMessageStore is null)
+        {
+            return;
+        }
+
+        validationMessageStore.Clear(args.FieldIdentifier);
+        formErrors.Clear();
+        editContext.NotifyValidationStateChanged();
+    }
+
+    private void ValidateConditionalFields()
+    {
+        if (form.SubCategoryId is null)
+        {
+            AddValidationMessage(nameof(ProductEditorForm.CategoryId), "Selecione uma categoria.");
+            AddValidationMessage(nameof(ProductEditorForm.SubCategoryId), "Selecione uma subcategoria.");
+        }
+
+        if (State.IsAdmin && form.UserId is null)
+        {
+            AddValidationMessage(nameof(ProductEditorForm.UserId), "Selecione o vendedor.");
+        }
+    }
+
+    private bool HasCustomValidationErrors() =>
+        validationMessageStore is not null &&
+        editContext.GetValidationMessages().Any();
+
+    private void ClearCustomValidationMessages() =>
+        validationMessageStore?.Clear();
+
+    private void AddValidationMessage(string fieldName, string errorMessage) =>
+        validationMessageStore?.Add(new FieldIdentifier(form, fieldName), errorMessage);
+
+    private void ApplyServerErrors(SaveProductResult result)
+    {
+        successMessage = false;
+        formErrors.Clear();
+        ClearCustomValidationMessages();
+
+        if (result.Errors is { Count: > 0 })
+        {
+            foreach (var entry in result.Errors)
+            {
+                var targetField = ResolveFieldName(entry.Key);
+                if (targetField is null)
+                {
+                    formErrors.AddRange(entry.Value);
+                    continue;
+                }
+
+                foreach (var error in entry.Value)
+                {
+                    AddValidationMessage(targetField, error);
+                }
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(result.Message) && !formErrors.Contains(result.Message, StringComparer.Ordinal))
+        {
+            formErrors.Add(result.Message);
+        }
+
+        editContext.NotifyValidationStateChanged();
+    }
+
+    private string? ResolveFieldName(string key) =>
+        key.ToLowerInvariant() switch
+        {
+            "title" => nameof(ProductEditorForm.Title),
+            "description" => nameof(ProductEditorForm.Description),
+            "sku" => nameof(ProductEditorForm.Sku),
+            "userid" => nameof(ProductEditorForm.UserId),
+            "categoryid" => nameof(ProductEditorForm.CategoryId),
+            "subcategoryid" => nameof(ProductEditorForm.SubCategoryId),
+            _ => null
+        };
+
+    private string FieldClass<TField>(Expression<Func<TField>> accessor)
+    {
+        var fieldIdentifier = FieldIdentifier.Create(accessor);
+        var hasErrors = editContext.GetValidationMessages(fieldIdentifier).Any();
+        var shouldHighlight = submitAttempted || editContext.IsModified(fieldIdentifier);
+        return hasErrors && shouldHighlight ? "form-control is-invalid" : "form-control";
+    }
+
+    private string CategoryFieldClass()
+    {
+        var categoryField = new FieldIdentifier(form, nameof(ProductEditorForm.CategoryId));
+        var subCategoryField = new FieldIdentifier(form, nameof(ProductEditorForm.SubCategoryId));
+        var hasErrors = editContext.GetValidationMessages(categoryField).Any() || editContext.GetValidationMessages(subCategoryField).Any();
+        var shouldHighlight = submitAttempted || editContext.IsModified(categoryField) || editContext.IsModified(subCategoryField);
+        return hasErrors && shouldHighlight ? "form-control is-invalid" : "form-control";
+    }
 
     private void RemoveAttributeRow(int index)
     {
@@ -575,23 +691,21 @@ else
             : attributes.FirstOrDefault(item => item.Id == attributeId)?.Name ?? $"#{attributeId}";
 
     private string ProductImageUrl(string fileName) =>
-        Api.AssetUrl($"/uploads/products/{fileName}");
-
-
-    private static int? ParseInt(string? value) => int.TryParse(value, out var result) ? result : null;
-    private static Guid? ParseGuid(string? value) => Guid.TryParse(value, out var result) ? result : null;
-
+        Api.AssetUrl($"/uploads/products/{Path.GetFileName(fileName.Replace('\\', '/'))}");
     private sealed class ProductEditorForm
     {
         public int? Id { get; set; }
         public Guid? UserId { get; set; }
         public int? CategoryId { get; set; }
         public int? SubCategoryId { get; set; }
+        [Required(ErrorMessage = "Titulo obrigatorio.")]
         public string Title { get; set; } = string.Empty;
+        [Required(ErrorMessage = "Descricao obrigatoria.")]
         public string Description { get; set; } = string.Empty;
         public decimal Price { get; set; }
         public int Stock { get; set; }
         public bool Offer { get; set; } = true;
+        [Required(ErrorMessage = "SKU obrigatorio.")]
         public string Sku { get; set; } = string.Empty;
         public List<string> Images { get; set; } = [];
         public List<ProductAttributeLine> Attributes { get; set; } = [];

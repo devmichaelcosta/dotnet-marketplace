@@ -1,5 +1,5 @@
 using Marketplace.Api.Domain;
-using Marketplace.Api.Features.Products;
+using Marketplace.Api.Features.Products.Admin.Shared;
 using Marketplace.Api.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,6 +11,7 @@ public sealed class ProductDeletionPolicyTests
     public async Task Product_deletion_is_blocked_when_order_items_exist()
     {
         await using var db = CreateContext();
+        var policy = new ProductDeletionPolicy();
 
         try
         {
@@ -62,7 +63,7 @@ public sealed class ProductDeletionPolicyTests
             });
             await db.SaveChangesAsync();
 
-            var validation = await ProductDeletionPolicy.ValidateAsync(db, product.Id);
+            var validation = await policy.ValidateAsync(db, product.Id);
 
             Assert.NotNull(validation);
         }
@@ -76,6 +77,7 @@ public sealed class ProductDeletionPolicyTests
     public async Task Product_deletion_is_allowed_when_order_items_do_not_exist()
     {
         await using var db = CreateContext();
+        var policy = new ProductDeletionPolicy();
 
         try
         {
@@ -103,7 +105,7 @@ public sealed class ProductDeletionPolicyTests
             db.Products.Add(product);
             await db.SaveChangesAsync();
 
-            var validation = await ProductDeletionPolicy.ValidateAsync(db, product.Id);
+            var validation = await policy.ValidateAsync(db, product.Id);
 
             Assert.Null(validation);
         }

@@ -29,7 +29,8 @@ public sealed class DatabaseStartupIntegrationTests
             Assert.True(await db.SubCategories.AnyAsync());
             Assert.True(await db.Products.CountAsync() >= 1000);
             Assert.True(await db.CarouselImages.AnyAsync());
-            Assert.True(await db.ProductImages.AnyAsync(image => image.FileName.StartsWith("/uploads/products/")));
+            Assert.True(await db.ProductImages.AnyAsync());
+            Assert.False(await db.ProductImages.AnyAsync(image => image.FileName.StartsWith("/uploads/products/")));
             Assert.True(await db.ProductAttributeValues.CountAsync() >= 1000);
             Assert.True(await db.SimilarProducts.CountAsync() >= 1000);
             Assert.True(await db.CarouselImages.AnyAsync(image => image.FileName.StartsWith("/uploads/carousel/")));

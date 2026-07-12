@@ -1,0 +1,155 @@
+@page "/admin/catalog/attributes"
+@attribute [Authorize(Roles = "admin")]
+@rendermode InteractiveServer
+@inject MarketplaceApiClient Api
+@inject ClientState State
+@inject IJSRuntime Js
+@inject NavigationManager Navigation
+
+<PageTitle>Atributos</PageTitle>
+
+<section class="admin-imports-shell admin-catalog-shell">
+    <div class="admin-imports-hero">
+        <div>
+            <span>Admin</span>
+            <h1>Atributos</h1>
+            <p>Modulo independente para cadastro e manutencao dos atributos tecnicos.</p>
+            <nav class="nav-breadcrumb admin-breadcrumb">
+                <span><a href="/admin/catalog">Catalogo</a></span>
+                <span>Atributos</span>
+            </nav>
+        </div>
+        <div>
+            <a class="btn btn-primary" href="/admin/catalog/attributes/create">Novo atributo</a>
+        </div>
+    </div>
+
+    @if (!State.IsAuthenticated || !State.IsAdmin)
+    {
+        <div class="admin-import-card">Faca login como admin para acessar esta area.</div>
+    }
+    else if (loading)
+    {
+        <div class="admin-import-card">Carregando atributos...</div>
+    }
+    else
+    {
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <p class="notice @(successMessage ? "notice-success" : null)">@message</p>
+        }
+
+        <section class="admin-import-card admin-table-card">
+            <div class="admin-table-header">
+                <div>
+                    <span class="admin-card-eyebrow">Lista</span>
+                    <h2>Atributos cadastrados</h2>
+                </div>
+                <span class="admin-total-pill">@attributes.Length registros</span>
+            </div>
+
+            <form class="admin-filter-bar admin-catalog-filter" @onsubmit="SearchAsync" @onsubmit:preventDefault="true">
+                <input class="form-control" placeholder="Buscar atributo" @bind="search" @bind:event="oninput" />
+                <button class="btn btn-outline-secondary" type="submit">Buscar</button>
+            </form>
+
+            <div class="admin-table-scroll">
+                <table class="table admin-data-table">
+                    <thead>
+                        <tr>
+                            <th class="actions-column"></th>
+                            <th><button class="table-sort" type="button" @onclick='() => SortAsync("name")'>Atributo</button></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var catalogAttribute in attributes)
+                        {
+                            <tr>
+                                <td class="actions-column">
+                                    <div class="action-cell">
+                                        <a class="btn btn-sm btn-outline-secondary icon-action" title="Editar" href="@($"/admin/catalog/attributes/{catalogAttribute.Id}/edit")">
+                                            <i class="fa fa-pen"></i>
+                                        </a>
+                                        <button class="btn btn-sm btn-outline-danger icon-action" type="button" title="Excluir" @onclick="() => DeleteAsync(catalogAttribute.Id)">
+                                            <i class="fa fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                                <td>@catalogAttribute.Name</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+</section>
+
+@code {
+    private bool loading;
+    private string? message;
+    private bool successMessage;
+    private AdminAttribute[] attributes = [];
+    private string search = string.Empty;
+    private string sort = "name";
+    private string direction = "asc";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Navigation.Uri.Contains("saved=attribute", StringComparison.OrdinalIgnoreCase))
+        {
+            message = "Atributo salvo com sucesso.";
+            successMessage = true;
+        }
+
+        if (State.IsAdmin)
+        {
+            await LoadAsync();
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        attributes = await Api.GetAdminAttributesAsync(search, sort, direction);
+        loading = false;
+    }
+
+    private async Task SearchAsync() => await LoadAsync();
+
+    private async Task SortAsync(string column)
+    {
+        if (sort == column)
+        {
+            direction = direction == "asc" ? "desc" : "asc";
+        }
+        else
+        {
+            sort = column;
+            direction = "asc";
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync(int id)
+    {
+        var attribute = attributes.FirstOrDefault(item => item.Id == id);
+        if (attribute is not null)
+        {
+            var confirmed = await Js.InvokeAsync<bool>("confirm", $"Excluir o atributo {attribute.Name}? Esta acao nao pode ser desfeita.");
+            if (!confirmed)
+            {
+                return;
+            }
+        }
+
+        var result = await Api.DeleteAttributeAsync(id);
+        message = result.Message;
+        successMessage = result.Succeeded;
+        if (result.Succeeded)
+        {
+            await LoadAsync();
+        }
+    }
+}

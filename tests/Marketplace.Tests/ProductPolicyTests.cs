@@ -1,4 +1,4 @@
-using Marketplace.Api.Features.Products;
+using Marketplace.Api.Features.Products.Admin.Shared;
 
 namespace Marketplace.Tests;
 
@@ -8,8 +8,9 @@ public sealed class ProductPolicyTests
     public void Product_policy_accepts_valid_product_request()
     {
         var request = ValidRequest();
+        var validator = new ProductRequestValidator();
 
-        var errors = ProductPolicy.Validate(request);
+        var errors = validator.Validate(request);
 
         Assert.Empty(errors);
     }
@@ -25,8 +26,9 @@ public sealed class ProductPolicyTests
             Price = 0,
             Stock = -1
         };
+        var validator = new ProductRequestValidator();
 
-        var errors = ProductPolicy.Validate(request);
+        var errors = validator.Validate(request);
 
         Assert.Contains("title", errors.Keys);
         Assert.Contains("description", errors.Keys);

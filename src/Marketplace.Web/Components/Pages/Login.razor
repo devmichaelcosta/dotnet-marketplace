@@ -6,61 +6,63 @@
 
 <PageTitle>Login</PageTitle>
 
-<section class="legacy-auth-shell auth-shell-split">
-    <div class="auth-promo-panel">
-        <span class="market-eyebrow">Marketplace premium</span>
-        <h1>Entre e volte exatamente para onde parou</h1>
-        <p>Continue sua navegação, recupere o carrinho e acesse seus pedidos com um fluxo simples e seguro.</p>
-        <div class="auth-promo-list">
-            <div>
-                <strong>Checkout rápido</strong>
-                <span>Seus dados ficam prontos para a próxima compra.</span>
-            </div>
-            <div>
-                <strong>Pedidos e curtidos</strong>
-                <span>Acompanhe o que você já viu e comprou.</span>
-            </div>
-            <div>
-                <strong>Conta unificada</strong>
-                <span>Login, perfil e endereços em um só lugar.</span>
+<section class="legacy-auth-shell">
+    <div class="auth-shell-split auth-shell-login">
+        <div class="auth-promo-panel">
+            <span class="market-eyebrow">Marketplace premium</span>
+            <h1>Entre e volte exatamente para onde parou</h1>
+            <p>Continue sua navegacao, recupere o carrinho e acesse seus pedidos com um fluxo simples e seguro.</p>
+            <div class="auth-promo-list">
+                <div>
+                    <strong>Checkout rapido</strong>
+                    <span>Seus dados ficam prontos para a proxima compra.</span>
+                </div>
+                <div>
+                    <strong>Pedidos e curtidos</strong>
+                    <span>Acompanhe o que voce ja viu e comprou.</span>
+                </div>
+                <div>
+                    <strong>Conta unificada</strong>
+                    <span>Login, perfil e enderecos em um so lugar.</span>
+                </div>
             </div>
         </div>
-    </div>
 
-    @if (State.IsAuthenticated)
-    {
-        <div class="legacy-auth-card auth-card-panel">
-            <span class="market-eyebrow text-center">Acesso ativo</span>
-            <h2 class="auth-card-title">Você já está logado como <strong>@State.UserName</strong></h2>
-            <p class="muted text-center">Se quiser, pode sair agora e trocar de conta.</p>
-            <button class="btn btn-lg btn-block btn-outline-dark w-100" @onclick="SignOutAsync">Sair</button>
-        </div>
-    }
-    else
-    {
-        <EditForm Model="form" OnValidSubmit="SignInAsync" FormName="login-form" class="legacy-auth-card auth-card-panel">
-            <DataAnnotationsValidator />
-            <span class="market-eyebrow text-center">Bem-vindo de volta</span>
-            <h2 class="auth-card-title">Entre para continuar comprando</h2>
-            <label>
-                Login
-                <InputText id="login" class="form-control" placeholder="Informe seu login" @bind-Value="form.Login" />
-            </label>
-            <label>
-                Senha
-                <InputText id="password" class="form-control" type="password" placeholder="Informe sua senha" @bind-Value="form.Password" />
-            </label>
-            <button class="btn btn-lg btn-block mt-2 btn-primary w-100" type="submit">Entrar</button>
-            <div class="auth-links">
-                <a class="a-primary d-block text-center mt-3" href="register">Criar uma conta</a>
-                <a class="muted d-block text-center mt-2" href="recover-password">Esqueci minha senha</a>
+        @if (State.IsAuthenticated)
+        {
+            <div class="legacy-auth-card auth-card-panel">
+                <span class="market-eyebrow text-center">Acesso ativo</span>
+                <h2 class="auth-card-title">Voce ja esta logado como <strong>@State.UserName</strong></h2>
+                <p class="muted text-center">Se quiser, pode sair agora e trocar de conta.</p>
+                <button class="btn btn-lg btn-block btn-outline-dark w-100" data-testid="logout-button" @onclick="SignOutAsync">Sair</button>
             </div>
-            @if (!string.IsNullOrWhiteSpace(error))
-            {
-                <p class="text-danger">@error</p>
-            }
-        </EditForm>
-    }
+        }
+        else
+        {
+            <EditForm Model="form" OnValidSubmit="SignInAsync" FormName="login-form" class="legacy-auth-card auth-card-panel" data-testid="login-form">
+                <DataAnnotationsValidator />
+                <span class="market-eyebrow text-center">Bem-vindo de volta</span>
+                <h2 class="auth-card-title">Entre para continuar comprando</h2>
+                <label>
+                    Login
+                    <InputText id="login" class="form-control" placeholder="Informe seu login" @bind-Value="form.Login" data-testid="login-username" />
+                </label>
+                <label>
+                    Senha
+                    <InputText id="password" class="form-control" type="password" placeholder="Informe sua senha" @bind-Value="form.Password" data-testid="login-password" />
+                </label>
+                <button class="btn btn-lg btn-block mt-2 btn-primary w-100" data-testid="login-submit" type="submit">Entrar</button>
+                <div class="auth-links">
+                    <a class="a-primary d-block text-center mt-3" href="register">Criar uma conta</a>
+                    <a class="muted d-block text-center mt-2" href="recover-password">Esqueci minha senha</a>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(error))
+                {
+                    <p class="text-danger" data-testid="login-error">@error</p>
+                }
+            </EditForm>
+        }
+    </div>
 </section>
 
 @code {

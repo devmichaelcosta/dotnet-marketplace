@@ -1,0 +1,12 @@
+@page "/admin/users/{Id:guid}/edit"
+@attribute [Authorize(Roles = "admin")]
+@rendermode InteractiveServer
+
+<PageTitle>Editar usuario</PageTitle>
+
+<AdminUserEditor UserId="Id" />
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+}

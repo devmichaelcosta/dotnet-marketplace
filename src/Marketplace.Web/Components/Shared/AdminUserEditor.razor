@@ -1,0 +1,246 @@
+@inject MarketplaceApiClient Api
+@inject NavigationManager Navigation
+
+@if (loading)
+{
+    <section class="admin-imports-shell">
+        <div class="admin-import-card">
+            <p>Carregando usuario...</p>
+        </div>
+    </section>
+}
+else
+{
+    <section class="admin-imports-shell admin-category-shell">
+        <div class="admin-imports-hero">
+            <div>
+                <span>Admin</span>
+                <h1>@Title</h1>
+                <p>@Description</p>
+                <nav class="nav-breadcrumb admin-breadcrumb">
+                    <span><a href="/admin/users">Usuarios</a></span>
+                    <span>@Title</span>
+                </nav>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <p class="notice admin-import-notice @(successMessage ? "notice-success" : null)">@message</p>
+        }
+
+        <div class="admin-import-card">
+            @if (PasswordOnly)
+            {
+                <EditForm Model="passwordForm" OnValidSubmit="ResetPasswordAsync" FormName="reset-user-password-form">
+                    <DataAnnotationsValidator />
+
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label" for="passwordUser">Usuario</label>
+                            <InputText id="passwordUser" class="form-control" @bind-Value="passwordForm.UserName" disabled />
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label" for="password">Nova senha</label>
+                            <InputText id="password" class="form-control" type="password" @bind-Value="passwordForm.Password" />
+                        </div>
+
+                        <div class="col-12 d-flex gap-2 justify-content-end">
+                            <a class="btn btn-outline-secondary" href="/admin/users">Voltar</a>
+                            <button class="btn btn-primary" type="submit">Resetar senha</button>
+                        </div>
+                    </div>
+                </EditForm>
+            }
+            else
+            {
+                <EditForm Model="form" OnValidSubmit="SaveAsync" FormName="user-form">
+                    <DataAnnotationsValidator />
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label" for="name">Nome</label>
+                            <InputText id="name" class="form-control" @bind-Value="form.Name" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label" for="lastName">Sobrenome</label>
+                            <InputText id="lastName" class="form-control" @bind-Value="form.LastName" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label" for="login">Login</label>
+                            <InputText id="login" class="form-control" @bind-Value="form.Login" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label" for="cpf">CPF</label>
+                            <InputText id="cpf" class="form-control" @bind-Value="form.Cpf" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label" for="role">Perfil</label>
+                            <InputSelect id="role" class="form-control" @bind-Value="form.Role">
+                                <option value="comum">Comum</option>
+                                <option value="vendedor">Vendedor</option>
+                                <option value="admin">Admin</option>
+                            </InputSelect>
+                        </div>
+
+                        @if (UserId is null)
+                        {
+                            <div class="col-md-6">
+                                <label class="form-label" for="newPassword">Senha</label>
+                                <InputText id="newPassword" class="form-control" type="password" @bind-Value="form.Password" />
+                            </div>
+                        }
+
+                        <div class="col-12 d-flex gap-2 justify-content-end">
+                            <a class="btn btn-outline-secondary" href="/admin/users">Voltar</a>
+                            <button class="btn btn-primary" type="submit">Salvar usuario</button>
+                        </div>
+                    </div>
+                </EditForm>
+            }
+        </div>
+    </section>
+}
+
+@code {
+    [Parameter]
+    public Guid? UserId { get; set; }
+
+    [Parameter]
+    public bool PasswordOnly { get; set; }
+
+    private bool loading = true;
+    private string? message;
+    private bool successMessage;
+    private UserForm form = new();
+    private PasswordResetForm passwordForm = new();
+
+    private string Title => PasswordOnly
+        ? "Resetar senha"
+        : UserId is null ? "Novo usuario" : "Editar usuario";
+
+    private string Description => PasswordOnly
+        ? "Defina uma nova senha para a conta selecionada."
+        : "Informe os dados do usuario e clique em salvar.";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        message = null;
+        successMessage = false;
+
+        if (UserId is null)
+        {
+            form = new UserForm();
+            passwordForm = new PasswordResetForm();
+            loading = false;
+            return;
+        }
+
+        var user = await Api.GetAdminUserAsync(UserId.Value);
+        if (user is null)
+        {
+            message = "Usuario nao encontrado.";
+            loading = false;
+            return;
+        }
+
+        form = new UserForm
+        {
+            Id = user.Id,
+            Name = user.Name,
+            LastName = user.LastName,
+            Login = user.Login,
+            Cpf = user.Cpf,
+            Role = user.Role
+        };
+
+        passwordForm = new PasswordResetForm
+        {
+            UserId = user.Id,
+            UserName = $"{user.Name} {user.LastName}".Trim()
+        };
+
+        loading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(form.Name) || string.IsNullOrWhiteSpace(form.Login))
+        {
+            message = "Informe nome e login.";
+            successMessage = false;
+            return;
+        }
+
+        if (form.Id is null && string.IsNullOrWhiteSpace(form.Password))
+        {
+            message = "Senha obrigatoria para novo usuario.";
+            successMessage = false;
+            return;
+        }
+
+        var result = await Api.SaveUserAsync(new AdminUserRequest(form.Id, form.Name.Trim(), form.LastName.Trim(), form.Login.Trim(), form.Password, form.Cpf, form.Role));
+        if (result.Succeeded)
+        {
+            Navigation.NavigateTo("/admin/users?saved=user");
+            return;
+        }
+
+        message = result.Message;
+        successMessage = false;
+    }
+
+    private async Task ResetPasswordAsync()
+    {
+        if (passwordForm.UserId is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(passwordForm.Password))
+        {
+            message = "Informe a nova senha.";
+            successMessage = false;
+            return;
+        }
+
+        var result = await Api.ResetUserPasswordAsync(passwordForm.UserId.Value, passwordForm.Password);
+        if (result.Succeeded)
+        {
+            Navigation.NavigateTo("/admin/users?saved=password");
+            return;
+        }
+
+        message = result.Message;
+        successMessage = false;
+    }
+
+    private sealed class UserForm
+    {
+        public Guid? Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Login { get; set; } = string.Empty;
+        public string? Password { get; set; }
+        public string? Cpf { get; set; }
+        public string Role { get; set; } = "comum";
+    }
+
+    private sealed class PasswordResetForm
+    {
+        public Guid? UserId { get; set; }
+        public string UserName { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+    }
+}

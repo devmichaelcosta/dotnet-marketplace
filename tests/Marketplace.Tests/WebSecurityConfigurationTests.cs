@@ -68,15 +68,18 @@ public sealed class WebSecurityConfigurationTests
         var create = ReadSource("src", "Marketplace.Web", "Components", "Pages", "AdminCategoriesCreate.razor");
         var edit = ReadSource("src", "Marketplace.Web", "Components", "Pages", "AdminCategoriesEdit.razor");
         var editor = ReadSource("src", "Marketplace.Web", "Components", "Shared", "AdminCategoryEditor.razor");
-        var listPage = ReadSource("src", "Marketplace.Web", "Components", "Pages", "AdminCatalog.razor");
+        var listPage = ReadSource("src", "Marketplace.Web", "Components", "Pages", "AdminCategories.razor");
+        var hubPage = ReadSource("src", "Marketplace.Web", "Components", "Pages", "AdminCatalog.razor");
 
         Assert.Contains("@page \"/admin/catalog/categories/create\"", create);
         Assert.Contains("@page \"/admin/catalog/categories/{Id:int}/edit\"", edit);
         Assert.Contains("Nova categoria", editor);
         Assert.Contains("Editar categoria", editor);
         Assert.Contains("admin-data-table", listPage);
-        Assert.Contains("CreateCategory", listPage);
-        Assert.Contains("EditCategory(category.Id)", listPage);
+        Assert.Contains("/admin/catalog/categories/create", listPage);
+        Assert.Contains("/admin/catalog/categories/{category.Id}/edit", listPage);
+        Assert.Contains("admin-catalog-modules", hubPage);
+        Assert.Contains("/admin/catalog/categories", hubPage);
     }
 
     [Fact]
@@ -135,7 +138,9 @@ public sealed class WebSecurityConfigurationTests
     [InlineData("AdminSellers.razor")]
     [InlineData("AdminProducts.razor")]
     [InlineData("AdminCarousel.razor")]
-    [InlineData("AdminCatalog.razor")]
+    [InlineData("AdminCategories.razor")]
+    [InlineData("AdminSubCategories.razor")]
+    [InlineData("AdminAttributes.razor")]
     public void Admin_delete_actions_request_browser_confirmation(string fileName)
     {
         var page = ReadSource("src", "Marketplace.Web", "Components", "Pages", fileName);
@@ -146,7 +151,9 @@ public sealed class WebSecurityConfigurationTests
     [Theory]
     [InlineData("AdminUsers.razor")]
     [InlineData("AdminSellers.razor")]
-    [InlineData("AdminCatalog.razor")]
+    [InlineData("AdminCategories.razor")]
+    [InlineData("AdminSubCategories.razor")]
+    [InlineData("AdminAttributes.razor")]
     [InlineData("AdminCarousel.razor")]
     public void Admin_search_forms_submit_real_actions(string fileName)
     {
@@ -238,6 +245,22 @@ public sealed class WebSecurityConfigurationTests
         Assert.Contains("result.Message", product);
     }
 
+    [Fact]
+    public void Product_images_are_normalized_to_file_names_before_persisting()
+    {
+        var createApi = ReadSource("src", "Marketplace.Api", "Features", "Products", "Admin", "Create", "CreateProductEndpoint.cs");
+        var updateApi = ReadSource("src", "Marketplace.Api", "Features", "Products", "Admin", "Update", "UpdateProductEndpoint.cs");
+        var storageApi = ReadSource("src", "Marketplace.Api", "Features", "Products", "Shared", "ProductImageStorage.cs");
+        var catalogApi = ReadSource("src", "Marketplace.Api", "Features", "Catalog", "CatalogEndpoints.cs");
+        var importsApi = ReadSource("src", "Marketplace.Api", "Features", "ProductImports", "ProductImportEndpoints.cs");
+
+        Assert.Contains("imagesWriter.Build(request.Images)", createApi);
+        Assert.Contains("imagesWriter.Replace(product, request.Images, db)", updateApi);
+        Assert.Contains("NormalizeFileName", storageApi);
+        Assert.Contains("return $\"/uploads/products/{fileName}\";", catalogApi);
+        Assert.Contains("result.RelativePaths.Add(fileName);", importsApi);
+    }
+
     [Theory]
     [InlineData("LikedProducts.razor")]
     [InlineData("Orders.razor")]
@@ -308,9 +331,13 @@ public sealed class WebSecurityConfigurationTests
         var client = ReadSource("src", "Marketplace.Web", "Services", "MarketplaceApiClient.cs");
         var usersPage = ReadSource("src", "Marketplace.Web", "Components", "Pages", "AdminUsers.razor");
         var sellersPage = ReadSource("src", "Marketplace.Web", "Components", "Pages", "AdminSellers.razor");
-        var catalogPage = ReadSource("src", "Marketplace.Web", "Components", "Pages", "AdminCatalog.razor");
+        var categoriesPage = ReadSource("src", "Marketplace.Web", "Components", "Pages", "AdminCategories.razor");
+        var subCategoriesPage = ReadSource("src", "Marketplace.Web", "Components", "Pages", "AdminSubCategories.razor");
+        var attributesPage = ReadSource("src", "Marketplace.Web", "Components", "Pages", "AdminAttributes.razor");
         var carouselPage = ReadSource("src", "Marketplace.Web", "Components", "Pages", "AdminCarousel.razor");
         var adminApi = ReadSource("src", "Marketplace.Api", "Features", "Admin", "AdminEndpoints.cs");
+        var productAdminModule = ReadSource("src", "Marketplace.Api", "Features", "Products", "Admin", "ProductAdminModule.cs");
+        var productSearchApi = ReadSource("src", "Marketplace.Api", "Features", "Products", "Admin", "Search", "SearchProductsEndpoint.cs");
 
         Assert.Contains("GetAdminUsersAsync(", client);
         Assert.Contains("GetAdminSellersAsync(", client);
@@ -319,11 +346,13 @@ public sealed class WebSecurityConfigurationTests
         Assert.Contains("GetAdminAttributesAsync(", client);
         Assert.Contains("GetAdminUsersAsync(search, sort, direction)", usersPage);
         Assert.Contains("GetAdminSellersAsync(search, sort, direction)", sellersPage);
-        Assert.Contains("GetAdminCategoriesAsync(categorySearch, categorySort, categoryDirection)", catalogPage);
-        Assert.Contains("GetAdminSubCategoriesAsync(subCategorySearch, subCategorySort, subCategoryDirection)", catalogPage);
-        Assert.Contains("GetAdminAttributesAsync(attributeSearch, attributeSort, attributeDirection)", catalogPage);
+        Assert.Contains("GetAdminCategoriesAsync(search, sort, direction)", categoriesPage);
+        Assert.Contains("GetAdminSubCategoriesAsync(search, sort, direction)", subCategoriesPage);
+        Assert.Contains("GetAdminAttributesAsync(search, sort, direction)", attributesPage);
         Assert.Contains("GetCarouselAsync(search, sort, direction)", carouselPage);
         Assert.Contains("AdminListQueryPolicy", adminApi);
+        Assert.Contains("MapProductAdminEndpoints", productAdminModule);
+        Assert.Contains("SearchProductsHandler", productSearchApi);
     }
 
     [Theory]

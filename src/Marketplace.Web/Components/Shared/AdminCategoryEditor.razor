@@ -20,6 +20,7 @@ else
                 <p>Informe os dados da categoria e clique em salvar.</p>
                 <nav class="nav-breadcrumb admin-breadcrumb">
                     <span><a href="/admin/catalog">Catalogo</a></span>
+                    <span><a href="/admin/catalog/categories">Categorias</a></span>
                     <span>@(IsEditing ? "Editar categoria" : "Nova categoria")</span>
                 </nav>
             </div>
@@ -57,7 +58,7 @@ else
                     }
 
                     <div class="col-12 d-flex gap-2 justify-content-end">
-                        <a class="btn btn-outline-secondary" href="/admin/catalog">Voltar</a>
+                        <a class="btn btn-outline-secondary" href="/admin/catalog/categories">Voltar</a>
                         <button class="btn btn-primary" type="submit">Salvar categoria</button>
                     </div>
                 </div>
@@ -141,7 +142,7 @@ else
         var result = await Api.SaveCategoryAsync(new AdminCategoryRequest(form.Id, form.Title.Trim(), form.Image));
         if (result.Succeeded)
         {
-            Navigation.NavigateTo("/admin/catalog?saved=category");
+            Navigation.NavigateTo("/admin/catalog/categories?saved=category");
             return;
         }
 

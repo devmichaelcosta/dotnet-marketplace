@@ -25,13 +25,21 @@ else
                 <p>Cadastro administrativo de produtos migrado para Blazor.</p>
             </div>
             <div>
-                <button class="btn btn-primary" type="button" @onclick="CreateProduct">Novo produto</button>
+                <a class="btn btn-primary" data-testid="admin-products-create" href="/admin/products/create">Novo produto</a>
             </div>
         </div>
 
         @if (!string.IsNullOrWhiteSpace(message))
         {
-            <p class="notice admin-import-notice @(successMessage ? "notice-success" : null)">@message</p>
+            <div class="admin-toast @(successMessage ? "admin-toast-success" : "admin-toast-error")" data-testid="admin-products-notice" role="status" aria-live="polite">
+                <div>
+                    <strong>@(successMessage ? "Sucesso" : "Atencao")</strong>
+                    <span>@message</span>
+                </div>
+                <button class="btn btn-sm btn-link admin-toast-close" type="button" @onclick="DismissMessage" aria-label="Fechar notificacao">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
         }
 
         <div class="admin-import-card admin-table-card">
@@ -44,7 +52,7 @@ else
             </div>
 
             <form class="admin-filter-bar" @onsubmit="SearchAsync" @onsubmit:preventDefault="true">
-                <input class="form-control" placeholder="Buscar por titulo, descricao ou SKU" @bind="search" @bind:event="oninput" />
+                <input class="form-control" data-testid="admin-products-search" placeholder="Buscar por titulo, descricao ou SKU" @bind="search" @bind:event="oninput" />
                 <select class="form-control" value="@pageSize" @onchange="OnPageSizeChanged">
                     <option value="10">10 por pagina</option>
                     <option value="25">25 por pagina</option>
@@ -54,7 +62,7 @@ else
             </form>
 
             <div class="admin-table-scroll">
-                <table class="table admin-data-table">
+                <table class="table admin-data-table" data-testid="admin-products-table">
                     <thead>
                         <tr>
                             <th class="actions-column admin-product-actions"></th>
@@ -69,13 +77,13 @@ else
                     <tbody>
                         @foreach (var product in products.Items)
                         {
-                            <tr>
+                            <tr data-testid="admin-products-row">
                                 <td class="actions-column admin-product-actions">
                                     <div class="action-cell">
-                                        <button class="btn btn-sm btn-outline-secondary icon-action" type="button" title="Editar" @onclick="() => EditProduct(product.Id)">
+                                        <a class="btn btn-sm btn-outline-secondary icon-action" data-testid="admin-products-edit" title="Editar" href="@($"/admin/products/{product.Id}/edit")">
                                             <i class="fa fa-pen"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-danger icon-action" type="button" title="Excluir" @onclick="() => DeleteAsync(product.Id)">
+                                        </a>
+                                        <button class="btn btn-sm btn-outline-danger icon-action" data-testid="admin-products-delete" type="button" title="Excluir" @onclick="() => DeleteAsync(product.Id)">
                                             <i class="fa fa-trash"></i>
                                         </button>
                                     </div>
@@ -116,6 +124,12 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        if (Navigation.Uri.Contains("saved=created", StringComparison.OrdinalIgnoreCase))
+        {
+            message = "Produto cadastrado com sucesso.";
+            successMessage = true;
+        }
+
         if (Navigation.Uri.Contains("saved=edited", StringComparison.OrdinalIgnoreCase))
         {
             message = "Produto editado com sucesso.";
@@ -198,6 +212,5 @@ else
         }
     }
 
-    private void CreateProduct() => Navigation.NavigateTo("/admin/products/create");
-    private void EditProduct(int id) => Navigation.NavigateTo($"/admin/products/{id}/edit");
+    private void DismissMessage() => message = null;
 }

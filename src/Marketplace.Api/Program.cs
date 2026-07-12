@@ -7,6 +7,7 @@ using Marketplace.Api.Features.Catalog;
 using Marketplace.Api.Features.Orders;
 using Marketplace.Api.Features.ProductImports;
 using Marketplace.Api.Features.Products;
+using Marketplace.Api.Features.Products.Admin;
 using Marketplace.Api.Features.Users;
 using Marketplace.Api.Infrastructure.Persistence;
 using Marketplace.Api.Infrastructure.Security;
@@ -62,6 +63,7 @@ builder.Services.AddSingleton<ProductImportQueue>();
 builder.Services.AddScoped<ProductImportProcessor>();
 builder.Services.AddScoped<ProductImportImageDownloader>();
 builder.Services.AddHostedService<ProductImportWorker>();
+builder.Services.AddProductAdminModule();
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
@@ -81,6 +83,7 @@ app.MapGet("/api/health", () => Results.Ok(new { Status = "Healthy", Service = "
 app.MapAuthEndpoints();
 app.MapCatalogEndpoints();
 app.MapAdminEndpoints();
+app.MapProductAdminEndpoints();
 app.MapProductEndpoints();
 app.MapProductImportEndpoints();
 app.MapCartEndpoints();

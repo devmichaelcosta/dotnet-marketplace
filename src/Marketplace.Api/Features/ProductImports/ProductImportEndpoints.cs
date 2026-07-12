@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading.Channels;
 using Marketplace.Api.Domain;
 using Marketplace.Api.Features;
+using Marketplace.Api.Features.Products.Admin.Shared;
 using Marketplace.Api.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -489,7 +490,9 @@ public sealed class ProductImportProcessor(
             product.Stock = row.Stock;
             product.Offer = row.Offer;
             product.Sku = row.Sku;
-            product.Images = row.DownloadedImages.Select(image => new ProductImage { FileName = image }).ToList();
+            product.Images = Marketplace.Api.Features.Products.ProductImageStorage.NormalizeFileNames(row.DownloadedImages)
+                .Select(image => new ProductImage { FileName = image })
+                .ToList();
             product.AttributeValues = row.Attributes.Select(attribute => new ProductAttributeValue
             {
                 AttributeDefinitionId = attributesByName[ProductImportWorkbook.NormalizeKey(attribute.Key)].Id,
@@ -578,8 +581,7 @@ public sealed class ProductImportImageDownloader(IHttpClientFactory httpClientFa
     public async Task<ProductImportDownloadedImages> DownloadImagesAsync(string sku, IReadOnlyList<string> imageUrls, CancellationToken cancellationToken)
     {
         var client = httpClientFactory.CreateClient("product-import-images");
-        var dateFolder = DateTimeOffset.UtcNow.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
-        var relativeDirectory = Path.Combine("uploads", "products", "imports", dateFolder);
+        var relativeDirectory = Path.Combine("uploads", "products");
         var absoluteDirectory = Path.Combine(environment.WebRootPath, relativeDirectory);
         Directory.CreateDirectory(absoluteDirectory);
 
@@ -614,7 +616,7 @@ public sealed class ProductImportImageDownloader(IHttpClientFactory httpClientFa
             }
 
             result.AbsolutePaths.Add(absolutePath);
-            result.RelativePaths.Add("/" + Path.Combine(relativeDirectory, fileName).Replace('\\', '/'));
+            result.RelativePaths.Add(fileName);
         }
 
         return result;
