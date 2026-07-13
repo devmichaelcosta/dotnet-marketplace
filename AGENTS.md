@@ -1,4 +1,4 @@
-# AGENTS.md
+﻿# AGENTS.md
 
 ## Objetivo do projeto
 
@@ -22,6 +22,7 @@ Ao implementar qualquer funcionalidade siga obrigatoriamente:
 * Convention over Configuration
 * Fail Fast
 * YAGNI
+* Uma classe por arquivo.
 
 Evite:
 
@@ -44,6 +45,7 @@ Utilizar obrigatoriamente:
 * Baixo acoplamento
 * Alta coesão
 * Dependency Injection nativa do ASP.NET Core
+* Uma classe por arquivo
 
 Estrutura preferencial:
 
@@ -61,6 +63,8 @@ Features/
 │   └── Search/
 
 Cada operação representa um slice independente.
+
+DTOs, validators, mappers e classes de serviço específicas de um slice devem permanecer dentro da pasta do próprio slice.
 
 Não criar pastas globais como:
 
@@ -95,6 +99,8 @@ Endpoints devem apenas:
 * receber requisições;
 * delegar processamento;
 * retornar respostas.
+
+Operações de escrita, exclusão ou qualquer mutação de estado devem usar transação explícita quando houver mais de uma alteração persistida ou efeito colateral relacionado, garantindo comportamento tudo ou nada no banco.
 
 ---
 
@@ -281,6 +287,7 @@ Uma implementação só deve ser considerada concluída quando:
 * seguir os padrões definidos neste documento;
 * manter consistência arquitetural;
 * possuir código legível e sustentável.
+* preservar atomicidade em fluxos de mutação com transações adequadas.
 
 Qualidade arquitetural possui prioridade sobre velocidade de implementação.
 
@@ -288,6 +295,6 @@ Qualidade arquitetural possui prioridade sobre velocidade de implementação.
 
 ## Regras de UI admin
 
-* Listagens administrativas devem usar tabela no estilo datatable com busca e ordena��o.
+* Listagens administrativas devem usar tabela no estilo datatable com busca e ordenação.
 * Busca em telas administrativas deve funcionar ao pressionar `Enter`.
-* Bot�es de a��o devem privilegiar �cones e ocupar o menor espa�o poss�vel.
+* Botões de ação devem privilegiar ícones e ocupar o menor espaço possível.

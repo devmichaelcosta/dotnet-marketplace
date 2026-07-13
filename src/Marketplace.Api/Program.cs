@@ -1,14 +1,17 @@
-using System.Text;
+﻿using System.Text;
 using Marketplace.Api.Domain;
 using Marketplace.Api.Features.Admin;
-using Marketplace.Api.Features.Auth;
-using Marketplace.Api.Features.Cart;
-using Marketplace.Api.Features.Catalog;
-using Marketplace.Api.Features.Orders;
-using Marketplace.Api.Features.ProductImports;
-using Marketplace.Api.Features.Products;
-using Marketplace.Api.Features.Products.Admin;
-using Marketplace.Api.Features.Users;
+using Marketplace.Api.Features.Admin.Orders;
+using Marketplace.Api.Features.Admin.Produto;
+using Marketplace.Api.Features.Admin.Produto.ProductImports;
+using Marketplace.Api.Features.Admin.Produto.Ratings;
+using Marketplace.Api.Features.Website.Auth;
+using Marketplace.Api.Features.Website.Cart;
+using Marketplace.Api.Features.Website.Catalog;
+using Marketplace.Api.Features.Website.Orders;
+using Marketplace.Api.Features.Website.Produto;
+using Marketplace.Api.Features.Website.Carousel;
+using Marketplace.Api.Features.Website.Users;
 using Marketplace.Api.Infrastructure.Persistence;
 using Marketplace.Api.Infrastructure.Security;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -54,16 +57,18 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 builder.Services.AddScoped<TokenService>();
-builder.Services.AddHttpClient("product-import-images", client =>
-{
-    client.Timeout = TimeSpan.FromSeconds(5);
-    client.DefaultRequestHeaders.UserAgent.ParseAdd("DotNetMarketplaceProductImport/1.0");
-});
-builder.Services.AddSingleton<ProductImportQueue>();
-builder.Services.AddScoped<ProductImportProcessor>();
-builder.Services.AddScoped<ProductImportImageDownloader>();
-builder.Services.AddHostedService<ProductImportWorker>();
-builder.Services.AddProductAdminModule();
+builder.Services.AddAdminModule();
+builder.Services.AddAdminOrdersModule();
+builder.Services.AddProdutoAdminModule();
+builder.Services.AddProdutoImportAdminModule();
+builder.Services.AddProdutoWebsiteModule();
+builder.Services.AddProdutoRatingAdminModule();
+builder.Services.AddWebsiteAuthModule();
+builder.Services.AddWebsiteCartModule();
+builder.Services.AddWebsiteCatalogModule();
+builder.Services.AddWebsiteCarouselModule();
+builder.Services.AddWebsiteOrdersModule();
+builder.Services.AddWebsiteUsersModule();
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
@@ -80,15 +85,17 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapGet("/api/health", () => Results.Ok(new { Status = "Healthy", Service = "Marketplace.Api" }));
-app.MapAuthEndpoints();
-app.MapCatalogEndpoints();
 app.MapAdminEndpoints();
-app.MapProductAdminEndpoints();
-app.MapProductEndpoints();
-app.MapProductImportEndpoints();
-app.MapCartEndpoints();
-app.MapOrderEndpoints();
-app.MapUserEndpoints();
+app.MapAdminOrdersEndpoints();
+app.MapProdutoAdminEndpoints();
+app.MapProdutoWebsiteEndpoints();
+app.MapProdutoRatingAdminEndpoints();
+app.MapProdutoImportAdminEndpoints();
+app.MapWebsiteAuthEndpoints();
+app.MapWebsiteCatalogEndpoints();
+app.MapWebsiteCartEndpoints();
+app.MapWebsiteOrdersEndpoints();
+app.MapWebsiteUserEndpoints();
 
 if (app.Environment.IsDevelopment() && app.Configuration.GetValue("SeedDatabase", false))
 {
@@ -98,3 +105,6 @@ if (app.Environment.IsDevelopment() && app.Configuration.GetValue("SeedDatabase"
 app.Run();
 
 public partial class Program;
+
+
+

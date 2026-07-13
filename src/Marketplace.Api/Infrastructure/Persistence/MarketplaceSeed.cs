@@ -1,5 +1,5 @@
-using Marketplace.Api.Domain;
-using Marketplace.Api.Features.Products.Admin.Shared;
+﻿using Marketplace.Api.Domain;
+using Marketplace.Api.Features.Admin.Produto.Shared;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -98,7 +98,7 @@ public static class MarketplaceSeed
 
         foreach (var image in productImages)
         {
-            var normalized = Marketplace.Api.Features.Products.ProductImageStorage.NormalizeFileName(image.FileName);
+            var normalized = Marketplace.Api.Features.Website.Produto.Shared.ProductImageStorage.NormalizeFileName(image.FileName);
             if (string.IsNullOrWhiteSpace(normalized) || string.Equals(image.FileName, normalized, StringComparison.Ordinal))
             {
                 continue;
@@ -453,7 +453,7 @@ public static class MarketplaceSeed
             Stock = stock,
             Sku = sku,
             Images = images
-                .Select(Marketplace.Api.Features.Products.ProductImageStorage.NormalizeFileName)
+                .Select(Marketplace.Api.Features.Website.Produto.Shared.ProductImageStorage.NormalizeFileName)
                 .Where(image => !string.IsNullOrWhiteSpace(image))
                 .Select(image => new ProductImage { FileName = image! })
                 .ToList()
@@ -548,3 +548,4 @@ public static class MarketplaceSeed
         return user;
     }
 }
+

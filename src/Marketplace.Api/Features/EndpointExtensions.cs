@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Marketplace.Api.Domain;
-using Marketplace.Api.Features.Cart;
+using Marketplace.Api.Features.Website.Cart.Shared;
+using Marketplace.Api.Features.Website.Catalog;
 using Marketplace.Api.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
@@ -97,7 +98,7 @@ public static class EndpointExtensions
             item.Quantity,
             item.UnitPrice,
             SubTotal = item.UnitPrice * item.Quantity,
-            Image = Catalog.ProductImagePath.Normalize(item.Product.Images.FirstOrDefault()?.FileName)
+            Image = ProductImagePath.Normalize(item.Product.Images.FirstOrDefault()?.FileName)
         }).ToArray();
 
         return new

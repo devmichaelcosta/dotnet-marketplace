@@ -1,4 +1,9 @@
 <Solution>
+  <Folder Name="/files/">
+    <File Path="AGENT-RUNTIME-RULES.md" />
+    <File Path="AGENTS.md" />
+    <File Path="README.md" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/Marketplace.Api/Marketplace.Api.csproj" />
     <Project Path="src/Marketplace.Web/Marketplace.Web.csproj" />

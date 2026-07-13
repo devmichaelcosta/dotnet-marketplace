@@ -1,4 +1,4 @@
-using Marketplace.Api.Features.Admin;
+using Marketplace.Api.Features.Admin.Shared;
 
 namespace Marketplace.Tests;
 

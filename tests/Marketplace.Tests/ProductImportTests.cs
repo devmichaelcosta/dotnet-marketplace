@@ -1,5 +1,6 @@
-using Marketplace.Api.Domain;
-using Marketplace.Api.Features.ProductImports;
+﻿using Marketplace.Api.Domain;
+using Marketplace.Api.Features.Admin.Produto.ProductImports.SearchJobs;
+using Marketplace.Api.Features.Admin.Produto.ProductImports.Shared;
 using Marketplace.Api.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using NPOI.XSSF.UserModel;
@@ -122,7 +123,15 @@ public sealed class ProductImportTests
             }
 
             await using var db = new MarketplaceDbContext(options);
-            var result = await ProductImportQueries.SearchJobsAsync(db, "beta", null, "skus", "desc", 1, 10, CancellationToken.None);
+            var handler = new SearchProductImportJobsHandler(db);
+            var result = await handler.HandleAsync(new SearchProductImportJobsQuery
+            {
+                Search = "beta",
+                Sort = "skus",
+                Direction = "desc",
+                Page = 1,
+                PageSize = 10
+            }, CancellationToken.None);
 
             Assert.Equal(1, result.Total);
             Assert.Equal("beta.xlsx", result.Items.Single().OriginalFileName);
@@ -135,3 +144,4 @@ public sealed class ProductImportTests
         }
     }
 }
+

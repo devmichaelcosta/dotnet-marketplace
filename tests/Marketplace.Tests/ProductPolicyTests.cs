@@ -1,4 +1,4 @@
-using Marketplace.Api.Features.Products.Admin.Shared;
+﻿using Marketplace.Api.Features.Admin.Produto.Create;
 
 namespace Marketplace.Tests;
 
@@ -8,7 +8,7 @@ public sealed class ProductPolicyTests
     public void Product_policy_accepts_valid_product_request()
     {
         var request = ValidRequest();
-        var validator = new ProductRequestValidator();
+        var validator = new CreateProductRequestValidator();
 
         var errors = validator.Validate(request);
 
@@ -26,7 +26,7 @@ public sealed class ProductPolicyTests
             Price = 0,
             Stock = -1
         };
-        var validator = new ProductRequestValidator();
+        var validator = new CreateProductRequestValidator();
 
         var errors = validator.Validate(request);
 
@@ -37,7 +37,7 @@ public sealed class ProductPolicyTests
         Assert.Contains("stock", errors.Keys);
     }
 
-    private static ProductRequest ValidRequest() =>
+    private static CreateProductRequest ValidRequest() =>
         new(
             UserId: null,
             SubCategoryId: 1,
@@ -50,3 +50,4 @@ public sealed class ProductPolicyTests
             Images: [],
             Attributes: []);
 }
+

@@ -1,5 +1,5 @@
-using Marketplace.Api.Domain;
-using Marketplace.Api.Features.Products.Admin.Shared;
+﻿using Marketplace.Api.Domain;
+using Marketplace.Api.Features.Admin.Produto.Shared;
 using Marketplace.Api.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -126,3 +126,4 @@ public sealed class ProductDeletionPolicyTests
         return new MarketplaceDbContext(options);
     }
 }
+

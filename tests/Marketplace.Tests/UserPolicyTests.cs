@@ -1,4 +1,4 @@
-using Marketplace.Api.Features.Users;
+using Marketplace.Api.Features.Website.Users.Shared;
 
 namespace Marketplace.Tests;
 
