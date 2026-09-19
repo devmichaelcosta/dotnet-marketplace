@@ -9,6 +9,7 @@ public sealed class SearchOrdersHandler(MarketplaceDbContext db)
     {
         var userId = http.User.GetUserId();
         return await db.Orders
+            .AsNoTracking()
             .Where(order => order.UserId == userId)
             .OrderByDescending(order => order.CreatedAt)
             .Select(order => new OrderSummaryResponse(order.Id, order.Total, order.CreatedAt, order.Name, order.City))

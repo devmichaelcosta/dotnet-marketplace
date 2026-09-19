@@ -9,7 +9,7 @@ public sealed class SearchCarouselHandler(MarketplaceDbContext db)
     public async Task<List<CarouselResponse>> HandleAsync(SearchCarouselQuery query, CancellationToken cancellationToken)
     {
         return await AdminListQueryPolicy.ApplyCarouselSort(
-                db.CarouselImages.Where(item =>
+                db.CarouselImages.AsNoTracking().Where(item =>
                     string.IsNullOrWhiteSpace(query.Search) ||
                     item.FileName.Contains(query.Search) ||
                     item.SortOrder.ToString().Contains(query.Search)),

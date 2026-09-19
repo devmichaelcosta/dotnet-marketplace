@@ -47,8 +47,6 @@ public sealed class ProductDeletionPolicyTests
                 StateId = state.Id,
                 Total = 10m,
                 Name = "Cliente",
-                CardOwnerName = "Cliente",
-                ExpirationDate = "12/30",
                 Address = "Rua A",
                 Neighborhood = "Centro",
                 Cep = "00000-000",

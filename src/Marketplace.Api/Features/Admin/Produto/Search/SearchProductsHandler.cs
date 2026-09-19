@@ -14,8 +14,7 @@ public sealed class SearchProductsHandler(MarketplaceDbContext db, ProductAdminA
         var actor = accessPolicy.ResolveActor(http);
 
         var products = db.Products
-            .Include(item => item.Images)
-            .Include(item => item.User)
+            .AsNoTracking()
             .AsQueryable();
 
         if (actor.IsSeller && !actor.IsAdmin)
@@ -44,8 +43,8 @@ public sealed class SearchProductsHandler(MarketplaceDbContext db, ProductAdminA
             ("seller", _) => products.OrderBy(item => item.User!.Name),
             ("offer", "desc") => products.OrderByDescending(item => item.Offer),
             ("offer", _) => products.OrderBy(item => item.Offer),
-            _ when direction == "desc" => products.OrderByDescending(item => item.Title),
-            _ => products.OrderBy(item => item.Title)
+            _ when direction == "desc" => products.OrderByDescending(item => item.Title).ThenBy(item => item.Id),
+            _ => products.OrderBy(item => item.Title).ThenBy(item => item.Id)
         };
 
         var items = await products

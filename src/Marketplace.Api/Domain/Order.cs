@@ -10,8 +10,6 @@ public sealed class Order
     public decimal Total { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public string Name { get; set; } = string.Empty;
-    public string CardOwnerName { get; set; } = string.Empty;
-    public string ExpirationDate { get; set; } = string.Empty;
     public string Address { get; set; } = string.Empty;
     public string Neighborhood { get; set; } = string.Empty;
     public string Cep { get; set; } = string.Empty;

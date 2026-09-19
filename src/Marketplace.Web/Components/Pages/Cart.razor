@@ -129,7 +129,7 @@ else
             <div class="cart-heading">
                 <span class="market-eyebrow">Checkout</span>
                 <h2>Finalize sua compra</h2>
-                <p>Dados de identificacao, pagamento e entrega em um fluxo simples.</p>
+                <p>Dados de identificacao e entrega em um fluxo simples. O pagamento simulado nao armazena dados de cartao.</p>
             </div>
             <div class="legacy-checkout-layout">
                 <div>
@@ -145,20 +145,6 @@ else
                                 CPF:
                                 <input class="form-control" @bind="checkout.Cpf" />
                                 <small class="form-text text-muted">Seu cpf.</small>
-                            </label>
-                        </div>
-                    </fieldset>
-
-                    <fieldset class="category-fieldset">
-                        <legend>Dados de pagamento:</legend>
-                        <div class="checkout-grid">
-                            <label>
-                                Nome impresso
-                                <input class="form-control" @bind="checkout.CardOwnerName" />
-                            </label>
-                            <label>
-                                Data de expiracao
-                                <input class="form-control" placeholder="MM/AA" @bind="checkout.ExpirationDate" />
                             </label>
                         </div>
                     </fieldset>
@@ -270,8 +256,6 @@ else
     private sealed class CheckoutForm
     {
         public string Name { get; set; } = string.Empty;
-        public string CardOwnerName { get; set; } = string.Empty;
-        public string ExpirationDate { get; set; } = string.Empty;
         public string Address { get; set; } = string.Empty;
         public string Neighborhood { get; set; } = string.Empty;
         public string Cep { get; set; } = string.Empty;
@@ -281,6 +265,6 @@ else
         public string? Complement { get; set; }
 
         public CheckoutRequest ToRequest() =>
-            new(Name, CardOwnerName, ExpirationDate, Address, Neighborhood, Cep, City, Cpf, StateId, Complement);
+            new(Name, Address, Neighborhood, Cep, City, Cpf, StateId, Complement);
     }
 }

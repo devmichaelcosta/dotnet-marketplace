@@ -57,6 +57,39 @@ public sealed class ProductImportTests
         Assert.Contains("Atributos duplicados", exception.Message);
     }
 
+    [Fact]
+    public void Product_import_parser_rejects_missing_required_headers()
+    {
+        var workbook = new XSSFWorkbook();
+        var sheet = workbook.CreateSheet("Produtos");
+        var header = sheet.CreateRow(0);
+        header.CreateCell(0).SetCellValue("Titulo");
+
+        using var stream = new MemoryStream();
+        workbook.Write(stream, true);
+
+        var exception = Assert.Throws<ProductImportException>(() => ProductImportWorkbook.ReadRows(stream.ToArray()));
+
+        Assert.Contains("Cabecalhos obrigatorios ausentes", exception.Message);
+    }
+
+    [Fact]
+    public void Product_import_parser_rejects_unknown_boolean_values()
+    {
+        var bytes = ProductImportTemplate.Create();
+        using var input = new MemoryStream(bytes);
+        var workbook = new XSSFWorkbook(input);
+        var sheet = workbook.GetSheet("Produtos")!;
+        sheet.GetRow(1).GetCell(5).SetCellValue("talvez");
+
+        using var output = new MemoryStream();
+        workbook.Write(output, true);
+
+        var exception = Assert.Throws<ProductImportException>(() => ProductImportWorkbook.ReadRows(output.ToArray()));
+
+        Assert.Contains("EhOferta invalido", exception.Message);
+    }
+
     [Theory]
     [InlineData("SKU ABC 123", "sku-abc-123")]
     [InlineData("IMP/LIVRO:CLEAN", "imp-livro-clean")]

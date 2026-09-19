@@ -2,6 +2,7 @@ using Marketplace.Api.Domain;
 using Marketplace.Api.Features.Website.Cart.Shared;
 using Marketplace.Api.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using System.Data;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Marketplace.Api.Features.Website.Cart.Checkout;
@@ -10,10 +11,25 @@ public sealed class CheckoutHandler(MarketplaceDbContext db)
 {
     public async Task<IResult> HandleAsync(CheckoutRequest request, HttpContext http, CancellationToken cancellationToken)
     {
+        var validation = CheckoutValidationPolicy.Validate(request);
+        if (validation is not null)
+        {
+            return Results.ValidationProblem(validation);
+        }
+
         var userId = http.User.GetUserId();
         if (userId is null)
         {
             return Results.Unauthorized();
+        }
+
+        var stateExists = await db.States.AnyAsync(state => state.Id == request.StateId, cancellationToken);
+        if (!stateExists)
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["stateId"] = ["Estado informado nao existe."]
+            });
         }
 
         var cart = await db.GetOrCreateCartAsync(http.Request, userId, cancellationToken);
@@ -23,7 +39,9 @@ public sealed class CheckoutHandler(MarketplaceDbContext db)
             return Results.BadRequest(new { Message = "Carrinho vazio." });
         }
 
-        await using IDbContextTransaction transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await using IDbContextTransaction transaction = await db.Database.BeginTransactionAsync(
+            IsolationLevel.Serializable,
+            cancellationToken);
 
         foreach (var item in cart.Items)
         {
@@ -37,14 +55,12 @@ public sealed class CheckoutHandler(MarketplaceDbContext db)
         {
             UserId = userId.Value,
             StateId = request.StateId,
-            Name = request.Name,
-            CardOwnerName = request.CardOwnerName,
-            ExpirationDate = request.ExpirationDate,
-            Address = request.Address,
-            Neighborhood = request.Neighborhood,
-            Cep = request.Cep,
-            City = request.City,
-            Cpf = request.Cpf,
+            Name = request.Name!,
+            Address = request.Address!,
+            Neighborhood = request.Neighborhood!,
+            Cep = request.Cep!,
+            City = request.City!,
+            Cpf = request.Cpf!,
             Complement = request.Complement,
             Total = CartPolicy.CalculateTotal(cart.Items),
             Items = cart.Items.Select(item => new OrderItem

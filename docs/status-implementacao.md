@@ -21,6 +21,12 @@ O marketplace legado em PHP já foi modernizado em uma base .NET com API, Blazor
 - `dotnet test DotNetMarketplace.slnx` executado com sucesso.
 - A estrutura de slices está organizada por funcionalidade.
 - O sistema compila e os principais fluxos possuem cobertura automatizada.
+- Checkout validado no servidor, com estado/endereço/documentos obrigatórios, transação serializável para evitar baixa concorrente de estoque e sem persistência de dados de cartão.
+- Índices adicionados para SKU, catálogo, pedidos, avaliações, itens de pedido e produtos similares.
+- Suíte E2E validada para perfis anônimo, comum, vendedor e admin.
+- Casos de borda adicionados para carrinho sem estoque e importações com cabeçalhos/valores inválidos.
+- Revisão de performance aplicada às leituras públicas/admin e ao importador, com consultas sem tracking e downloads de imagens concorrentes limitados a quatro tarefas.
+- Regressão automatizada de responsividade validada em `1440x1000` e `390x844`.
 
 ## Diferente por segurança
 
@@ -30,9 +36,12 @@ O marketplace legado em PHP já foi modernizado em uma base .NET com API, Blazor
 
 ## Ainda monitorar
 
-- Ajustes visuais finos entre a interface Blazor e o legado original.
+- Ajustes visuais finos entre a interface Blazor e o legado original; a inspeção manual final depende da disponibilidade do LocalDB para subir a aplicação completa.
 - Eventuais melhorias incrementais de cobertura para fluxos raros de borda.
-- Revisões futuras de performance em listas muito grandes e importações extensas.
+- Medição de carga com volumes de produção reais em listas muito grandes e importações extensas.
+- Inspeção manual de contraste, alinhamento e navegação por teclado em diferentes resoluções.
+
+O roteiro de validação está em `docs/e2e-smoke-checklist.md`.
 
 ## Observação final
 

@@ -23,6 +23,8 @@ public sealed class MarketplaceE2eFixture : IAsyncLifetime
     public string WebBaseUrl => $"http://127.0.0.1:{WebPort}/";
     public string AdminUserName => "michael";
     public string AdminPassword => "ChangeMe123!";
+    public string SellerUserName => "multisom";
+    public string CustomerUserName => "tatiana";
 
     private string ConnectionString =>
         $"Server=(localdb)\\SGPLocalDB;Database={_databaseName};Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True";
@@ -64,13 +66,14 @@ public sealed class MarketplaceE2eFixture : IAsyncLifetime
         });
     }
 
-    public async Task<BrowserSession> CreateSessionAsync()
+    public async Task<BrowserSession> CreateSessionAsync(int width = 1440, int height = 1000)
     {
         ArgumentNullException.ThrowIfNull(_browser);
 
         var context = await _browser.NewContextAsync(new BrowserNewContextOptions
         {
-            BaseURL = WebBaseUrl
+            BaseURL = WebBaseUrl,
+            ViewportSize = new ViewportSize { Width = width, Height = height }
         });
 
         var page = await context.NewPageAsync();

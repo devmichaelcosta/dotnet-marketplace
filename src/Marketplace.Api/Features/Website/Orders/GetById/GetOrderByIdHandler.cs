@@ -9,6 +9,7 @@ public sealed class GetOrderByIdHandler(MarketplaceDbContext db)
     {
         var userId = http.User.GetUserId();
         var order = await db.Orders
+            .AsNoTracking()
             .Include(item => item.State)
             .Include(item => item.Items).ThenInclude(item => item.Product)
             .FirstOrDefaultAsync(item => item.Id == id && item.UserId == userId, cancellationToken);

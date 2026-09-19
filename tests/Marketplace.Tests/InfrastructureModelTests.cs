@@ -30,6 +30,18 @@ public sealed class InfrastructureModelTests
         AssertDeleteBehavior<ProductAttributeValue, Product>(context, "ProductId", DeleteBehavior.Cascade);
     }
 
+    [Fact]
+    public void SqlServer_model_has_indexes_for_catalog_search_and_critical_lists()
+    {
+        using var context = CreateContext();
+
+        AssertIndex<Product>(context, "Sku", isUnique: true);
+        AssertIndex<Order>(context, "UserId", "CreatedAt");
+        AssertIndex<OrderItem>(context, "ProductId");
+        AssertIndex<ProductRating>(context, "Approved", "CreatedAt");
+        AssertIndex<SimilarProduct>(context, "ChildProductId");
+    }
+
     private static MarketplaceDbContext CreateContext()
     {
         var options = new DbContextOptionsBuilder<MarketplaceDbContext>()
@@ -52,5 +64,27 @@ public sealed class InfrastructureModelTests
             key.Properties.Any(property => property.Name == foreignKeyProperty));
 
         Assert.Equal(expected, foreignKey.DeleteBehavior);
+    }
+
+    private static void AssertIndex<TEntity>(MarketplaceDbContext context, params string[] properties)
+        where TEntity : class => AssertIndex<TEntity>(context, properties, isUnique: null);
+
+    private static void AssertIndex<TEntity>(MarketplaceDbContext context, string property, bool isUnique)
+        where TEntity : class => AssertIndex<TEntity>(context, [property], isUnique);
+
+    private static void AssertIndex<TEntity>(MarketplaceDbContext context, string[] properties, bool? isUnique)
+        where TEntity : class
+    {
+        var entity = context.Model.FindEntityType(typeof(TEntity));
+        Assert.NotNull(entity);
+
+        var index = entity!.GetIndexes().SingleOrDefault(candidate =>
+            candidate.Properties.Select(property => property.Name).SequenceEqual(properties));
+
+        Assert.NotNull(index);
+        if (isUnique is not null)
+        {
+            Assert.Equal(isUnique.Value, index!.IsUnique);
+        }
     }
 }

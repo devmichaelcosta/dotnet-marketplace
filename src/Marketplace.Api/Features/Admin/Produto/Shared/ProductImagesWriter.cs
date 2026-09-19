@@ -21,6 +21,3 @@ public sealed class ProductImagesWriter
         product.Images = Build(images, product.Id);
     }
 }
-
-
-

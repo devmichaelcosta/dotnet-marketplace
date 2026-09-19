@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Collections.Concurrent;
 using System.Text.Json;
 using Marketplace.Api.Domain;
 using Marketplace.Api.Infrastructure.Persistence;
@@ -25,7 +26,7 @@ public sealed class ProductImportProcessor(
         var stopwatch = Stopwatch.StartNew();
         await MarkJobAsProcessingAsync(job, cancellationToken);
 
-        var downloadedFiles = new List<string>();
+        var downloadedFiles = new ConcurrentBag<string>();
         try
         {
             var absolutePath = ProductImportFiles.ToAbsolutePath(environment.WebRootPath, job.StoredFilePath);
@@ -44,15 +45,24 @@ public sealed class ProductImportProcessor(
                 return;
             }
 
-            foreach (var row in rows)
-            {
-                var images = await Task.Run(
-                        () => imageDownloader.DownloadImagesAsync(row.Sku, row.ImageUrls, cancellationToken),
-                        cancellationToken)
-                    .WaitAsync(TimeSpan.FromSeconds(30), cancellationToken);
-                row.DownloadedImages.AddRange(images.RelativePaths);
-                downloadedFiles.AddRange(images.AbsolutePaths);
-            }
+            await Parallel.ForEachAsync(
+                rows,
+                new ParallelOptions
+                {
+                    CancellationToken = cancellationToken,
+                    MaxDegreeOfParallelism = 4
+                },
+                async (row, token) =>
+                {
+                    var images = await imageDownloader
+                        .DownloadImagesAsync(row.Sku, row.ImageUrls, token)
+                        .WaitAsync(TimeSpan.FromSeconds(30), token);
+                    row.DownloadedImages.AddRange(images.RelativePaths);
+                    foreach (var file in images.AbsolutePaths)
+                    {
+                        downloadedFiles.Add(file);
+                    }
+                });
 
             await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
             var resultItems = await UpsertProductsAsync(rows, validation, cancellationToken);

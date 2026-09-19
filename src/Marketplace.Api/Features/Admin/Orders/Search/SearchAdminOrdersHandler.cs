@@ -7,7 +7,7 @@ public sealed class SearchAdminOrdersHandler(MarketplaceDbContext db)
 {
     public async Task<IReadOnlyList<AdminOrderSummaryResponse>> HandleAsync(SearchAdminOrdersQuery query, CancellationToken cancellationToken)
     {
-        var orders = db.Orders.Include(order => order.User).AsQueryable();
+        var orders = db.Orders.AsNoTracking().AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {

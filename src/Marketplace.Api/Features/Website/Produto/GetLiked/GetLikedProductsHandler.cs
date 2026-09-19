@@ -15,6 +15,7 @@ public sealed class GetLikedProductsHandler(MarketplaceDbContext db)
         }
 
         var products = await db.ProductLikes
+            .AsNoTracking()
             .Where(item => item.UserId == userId)
             .Include(item => item.Product)!.ThenInclude(product => product!.Images)
             .Include(item => item.Product)!.ThenInclude(product => product!.User)

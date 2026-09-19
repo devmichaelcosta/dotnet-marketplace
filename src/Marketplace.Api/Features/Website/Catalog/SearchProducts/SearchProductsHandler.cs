@@ -7,8 +7,8 @@ public sealed class SearchProductsHandler(MarketplaceDbContext db)
 {
     public async Task<SearchProductsResponse> HandleAsync(SearchProductsQuery query, CancellationToken cancellationToken)
     {
-        var page = query.Page <= 0 ? 1 : query.Page;
-        var products = db.Products.Include(product => product.Images).Include(product => product.User).AsQueryable();
+        var page = Math.Max(query.Page, 1);
+        var products = db.Products.AsNoTracking();
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
@@ -28,7 +28,7 @@ public sealed class SearchProductsHandler(MarketplaceDbContext db)
         }
 
         var total = await products.CountAsync(cancellationToken);
-        var items = await products.OrderBy(product => product.Title)
+        var items = await products.OrderBy(product => product.Title).ThenBy(product => product.Id)
             .Skip((page - 1) * 12)
             .Take(12)
             .Select(product => ProductSummary.From(product))

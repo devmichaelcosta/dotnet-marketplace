@@ -11,12 +11,15 @@ public sealed class GetHomeHandler(
     public async Task<object> HandleAsync(CancellationToken cancellationToken)
     {
         var carousel = await carouselHandler.HandleAsync(cancellationToken);
-        var categories = await db.Categories.OrderBy(item => item.Title).ToListAsync(cancellationToken);
+        var categories = await db.Categories
+            .AsNoTracking()
+            .OrderBy(item => item.Title)
+            .ToListAsync(cancellationToken);
         var offers = await db.Products
-            .Include(product => product.Images)
-            .Include(product => product.User)
+            .AsNoTracking()
             .Where(product => product.Offer && product.Stock > 0)
             .OrderBy(product => product.Title)
+            .ThenBy(product => product.Id)
             .Take(12)
             .Select(product => ProductSummary.From(product))
             .ToListAsync(cancellationToken);

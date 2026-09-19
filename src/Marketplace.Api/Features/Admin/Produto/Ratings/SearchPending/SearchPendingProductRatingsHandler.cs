@@ -10,8 +10,7 @@ public sealed class SearchPendingProductRatingsHandler(MarketplaceDbContext db)
         CancellationToken cancellationToken)
     {
         var ratings = db.ProductRatings
-            .Include(item => item.Product)
-            .Include(item => item.User)
+            .AsNoTracking()
             .Where(item => !item.Approved);
 
         if (!string.IsNullOrWhiteSpace(query.Search))

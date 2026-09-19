@@ -89,4 +89,21 @@ public sealed class CartPolicyTests
                 Assert.Equal(7m, item.UnitPrice);
             });
     }
+
+    [Fact]
+    public void Cart_policy_drops_anonymous_items_that_no_longer_have_stock()
+    {
+        var targetCart = new Marketplace.Api.Domain.Cart
+        {
+            Items = [new CartItem { ProductId = 10, Quantity = 2, UnitPrice = 5m }]
+        };
+        var sourceCart = new Marketplace.Api.Domain.Cart
+        {
+            Items = [new CartItem { ProductId = 10, Quantity = 1, UnitPrice = 5m }]
+        };
+
+        CartPolicy.MergeItems(targetCart, sourceCart, new Dictionary<int, int> { [10] = 0 }, "anonymous-cart");
+
+        Assert.Empty(targetCart.Items);
+    }
 }

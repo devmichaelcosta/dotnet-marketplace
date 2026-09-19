@@ -279,11 +279,6 @@ namespace Marketplace.Api.Infrastructure.Persistence.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("nvarchar(250)");
 
-                    b.Property<string>("CardOwnerName")
-                        .IsRequired()
-                        .HasMaxLength(160)
-                        .HasColumnType("nvarchar(160)");
-
                     b.Property<string>("Cep")
                         .IsRequired()
                         .HasMaxLength(16)
@@ -305,11 +300,6 @@ namespace Marketplace.Api.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("ExpirationDate")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("nvarchar(16)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -335,7 +325,7 @@ namespace Marketplace.Api.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("StateId");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId", "CreatedAt");
 
                     b.ToTable("Orders");
                 });
@@ -418,9 +408,12 @@ namespace Marketplace.Api.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("SubCategoryId");
+                    b.HasIndex("Sku")
+                        .IsUnique();
 
                     b.HasIndex("UserId");
+
+                    b.HasIndex("SubCategoryId", "Title");
 
                     b.ToTable("Products");
                 });
@@ -680,6 +673,8 @@ namespace Marketplace.Api.Infrastructure.Persistence.Migrations
                     b.HasIndex("ProductId");
 
                     b.HasIndex("UserId");
+
+                    b.HasIndex("Approved", "CreatedAt");
 
                     b.ToTable("ProductRatings");
                 });

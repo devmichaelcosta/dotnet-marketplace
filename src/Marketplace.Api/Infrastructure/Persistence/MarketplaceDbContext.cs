@@ -99,6 +99,8 @@ public sealed class MarketplaceDbContext(DbContextOptions<MarketplaceDbContext> 
             entity.Property(product => product.Price).HasPrecision(18, 2);
             entity.Property(product => product.CreatedBy).HasMaxLength(120).IsRequired();
             entity.Property(product => product.Sku).HasMaxLength(80).IsRequired();
+            entity.HasIndex(product => product.Sku).IsUnique();
+            entity.HasIndex(product => new { product.SubCategoryId, product.Title });
             entity.HasOne(product => product.SubCategory)
                 .WithMany(subCategory => subCategory.Products)
                 .HasForeignKey(product => product.SubCategoryId)
@@ -132,6 +134,7 @@ public sealed class MarketplaceDbContext(DbContextOptions<MarketplaceDbContext> 
                 .WithMany()
                 .HasForeignKey(similar => similar.ChildProductId)
                 .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(similar => similar.ChildProductId);
         });
 
         builder.Entity<ProductLike>(entity =>
@@ -144,6 +147,7 @@ public sealed class MarketplaceDbContext(DbContextOptions<MarketplaceDbContext> 
             entity.Property(rating => rating.Title).HasMaxLength(160).IsRequired();
             entity.Property(rating => rating.Description).HasMaxLength(2000).IsRequired();
             entity.Property(rating => rating.Rating).HasMaxLength(40).IsRequired();
+            entity.HasIndex(rating => new { rating.Approved, rating.CreatedAt });
         });
 
         builder.Entity<Cart>(entity =>
@@ -166,8 +170,6 @@ public sealed class MarketplaceDbContext(DbContextOptions<MarketplaceDbContext> 
         {
             entity.Property(order => order.Total).HasPrecision(18, 2);
             entity.Property(order => order.Name).HasMaxLength(160).IsRequired();
-            entity.Property(order => order.CardOwnerName).HasMaxLength(160).IsRequired();
-            entity.Property(order => order.ExpirationDate).HasMaxLength(16).IsRequired();
             entity.Property(order => order.Address).HasMaxLength(250).IsRequired();
             entity.Property(order => order.Neighborhood).HasMaxLength(120).IsRequired();
             entity.Property(order => order.Cep).HasMaxLength(16).IsRequired();
@@ -178,6 +180,7 @@ public sealed class MarketplaceDbContext(DbContextOptions<MarketplaceDbContext> 
                 .WithMany()
                 .HasForeignKey(order => order.StateId)
                 .OnDelete(DeleteBehavior.NoAction);
+            entity.HasIndex(order => new { order.UserId, order.CreatedAt });
         });
 
         builder.Entity<OrderItem>(entity =>
@@ -187,6 +190,7 @@ public sealed class MarketplaceDbContext(DbContextOptions<MarketplaceDbContext> 
                 .WithMany()
                 .HasForeignKey(item => item.ProductId)
                 .OnDelete(DeleteBehavior.NoAction);
+            entity.HasIndex(item => item.ProductId);
         });
 
         builder.Entity<CarouselImage>(entity =>

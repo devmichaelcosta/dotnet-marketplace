@@ -1,16 +1,14 @@
 ﻿using Marketplace.Api.Domain;
 using Marketplace.Api.Features.Admin.Produto.Shared;
 using Marketplace.Api.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
 
 namespace Marketplace.Api.Features.Admin.Produto.Create;
 
-public sealed class CreateProductHandler(
-    MarketplaceDbContext db,
-    ProductAdminAccessPolicy accessPolicy,
-    CreateProductRequestValidator validator,
-    ProductImagesWriter imagesWriter,
-    ProductAttributesWriter attributesWriter)
+public sealed class CreateProductHandler(MarketplaceDbContext db,
+                                         ProductAdminAccessPolicy accessPolicy,
+                                         CreateProductRequestValidator validator,
+                                         ProductImagesWriter imagesWriter,
+                                         ProductAttributesWriter attributesWriter)
 {
     public async Task<IResult> HandleAsync(CreateProductRequest request, HttpContext http, CancellationToken cancellationToken)
     {
@@ -50,4 +48,3 @@ public sealed class CreateProductHandler(
         return Results.Created($"/api/admin/products/{product.Id}", new { product.Id });
     }
 }
-

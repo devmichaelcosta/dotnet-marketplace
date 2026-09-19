@@ -1172,8 +1172,6 @@ public sealed record CartResponse(string CartId, CartItem[] Items, decimal SubTo
 public sealed record CartItem(int ProductId, string Title, int Quantity, decimal UnitPrice, decimal SubTotal, string? Image);
 public sealed record CheckoutRequest(
     string Name,
-    string CardOwnerName,
-    string ExpirationDate,
     string Address,
     string Neighborhood,
     string Cep,

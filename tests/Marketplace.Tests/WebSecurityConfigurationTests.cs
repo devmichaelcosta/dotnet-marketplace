@@ -277,6 +277,24 @@ public sealed class WebSecurityConfigurationTests
         Assert.Contains("BeginTransactionAsync", similarApi);
     }
 
+    [Fact]
+    public void Checkout_does_not_render_or_persist_card_details()
+    {
+        var page = ReadSource("src", "Marketplace.Web", "Components", "Pages", "Cart.razor");
+        var client = ReadSource("src", "Marketplace.Web", "Services", "MarketplaceApiClient.cs");
+        var request = ReadSource("src", "Marketplace.Api", "Features", "Website", "Cart", "Checkout", "CheckoutRequest.cs");
+        var order = ReadSource("src", "Marketplace.Api", "Domain", "Order.cs");
+
+        Assert.DoesNotContain("CardOwnerName", page);
+        Assert.DoesNotContain("ExpirationDate", page);
+        Assert.DoesNotContain("CardOwnerName", client);
+        Assert.DoesNotContain("ExpirationDate", client);
+        Assert.DoesNotContain("CardOwnerName", request);
+        Assert.DoesNotContain("ExpirationDate", request);
+        Assert.DoesNotContain("CardOwnerName", order);
+        Assert.DoesNotContain("ExpirationDate", order);
+    }
+
     [Theory]
     [InlineData("LikedProducts.razor")]
     [InlineData("Orders.razor")]

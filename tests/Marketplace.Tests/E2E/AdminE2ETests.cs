@@ -8,6 +8,36 @@ namespace Marketplace.Tests.E2E;
 public sealed class AdminE2ETests(MarketplaceE2eFixture fixture)
 {
     [Fact]
+    public async Task Anonymous_user_can_open_public_home()
+    {
+        await using var session = await fixture.CreateSessionAsync();
+
+        await session.Page.GotoAsync("/");
+
+        await Expect(session.Page.Locator(".home-hero")).ToBeVisibleAsync();
+    }
+
+    [Theory]
+    [InlineData(1440, 1000)]
+    [InlineData(390, 844)]
+    public async Task Public_home_does_not_overflow_the_viewport(int width, int height)
+    {
+        await using var session = await fixture.CreateSessionAsync(width, height);
+
+        await session.Page.GotoAsync("/");
+        await Expect(session.Page.Locator(".home-hero")).ToBeVisibleAsync();
+
+        var scrollWidth = await session.Page.EvaluateAsync<int>(
+            "() => document.documentElement.scrollWidth");
+        var clientWidth = await session.Page.EvaluateAsync<int>(
+            "() => document.documentElement.clientWidth");
+
+        Assert.True(
+            scrollWidth <= clientWidth + 1,
+            $"A home criou overflow horizontal em {width}x{height}: {scrollWidth} > {clientWidth}.");
+    }
+
+    [Fact]
     public async Task Anonymous_user_is_redirected_to_login_when_accessing_admin_users()
     {
         await using var session = await fixture.CreateSessionAsync();
@@ -17,6 +47,32 @@ public sealed class AdminE2ETests(MarketplaceE2eFixture fixture)
         var loginPage = new LoginPage(session.Page);
         Assert.True(await loginPage.IsVisibleAsync());
         Assert.Contains("/login", session.Page.Url, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Customer_can_login_and_open_profile()
+    {
+        await using var session = await fixture.CreateSessionAsync();
+        var loginPage = new LoginPage(session.Page);
+
+        await loginPage.LoginAsync(fixture.CustomerUserName, fixture.AdminPassword);
+        await session.Page.GotoAsync("/profile");
+
+        await Expect(session.Page.Locator(".profile-hero-panel")).ToBeVisibleAsync();
+    }
+
+    [Fact]
+    public async Task Seller_can_login_and_open_product_management()
+    {
+        await using var session = await fixture.CreateSessionAsync();
+        var loginPage = new LoginPage(session.Page);
+        var productsPage = new AdminProductsPage(session.Page);
+
+        await loginPage.LoginAsync(fixture.SellerUserName, fixture.AdminPassword);
+        await productsPage.NavigateAsync();
+
+        await Expect(session.Page.GetByTestId("admin-products-table")).ToBeVisibleAsync();
+        await Expect(session.Page.GetByTestId("admin-products-row").First).ToBeVisibleAsync();
     }
 
     [Fact]
@@ -68,4 +124,5 @@ public sealed class AdminE2ETests(MarketplaceE2eFixture fixture)
         await Expect(session.Page.GetByTestId("admin-product-title")).ToHaveValueAsync(title);
         await Expect(session.Page.GetByTestId("admin-product-sku")).ToHaveValueAsync(sku);
     }
+
 }

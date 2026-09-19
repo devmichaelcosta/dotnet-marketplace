@@ -8,6 +8,7 @@ public sealed class GetCatalogProductByIdHandler(MarketplaceDbContext db)
     public async Task<IResult> HandleAsync(int id, CancellationToken cancellationToken)
     {
         var product = await db.Products
+            .AsNoTracking()
             .Include(item => item.Images)
             .Include(item => item.User)
             .Include(item => item.AttributeValues).ThenInclude(item => item.AttributeDefinition)
@@ -21,6 +22,7 @@ public sealed class GetCatalogProductByIdHandler(MarketplaceDbContext db)
         }
 
         var similar = await db.SimilarProducts
+            .AsNoTracking()
             .Where(item => item.ParentProductId == id)
             .Include(item => item.ChildProduct)!.ThenInclude(product => product!.Images)
             .Include(item => item.ChildProduct)!.ThenInclude(product => product!.User)

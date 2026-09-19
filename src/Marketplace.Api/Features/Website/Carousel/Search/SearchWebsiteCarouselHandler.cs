@@ -8,6 +8,7 @@ public sealed class SearchWebsiteCarouselHandler(MarketplaceDbContext db)
     public async Task<List<WebsiteCarouselItemResponse>> HandleAsync(CancellationToken cancellationToken)
     {
         return await db.CarouselImages
+            .AsNoTracking()
             .OrderBy(item => item.SortOrder)
             .Select(item => new WebsiteCarouselItemResponse(item.Id, item.FileName, item.SortOrder))
             .ToListAsync(cancellationToken);

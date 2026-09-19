@@ -18,4 +18,9 @@ public sealed class Product
     public List<ProductImage> Images { get; set; } = [];
     public List<ProductAttributeValue> AttributeValues { get; set; } = [];
     public List<ProductRating> Ratings { get; set; } = [];
+
+    public Product()
+    {
+        
+    }
 }
