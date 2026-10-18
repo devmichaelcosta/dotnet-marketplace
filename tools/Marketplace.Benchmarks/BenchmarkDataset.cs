@@ -19,6 +19,7 @@ public static class BenchmarkDatasetFactory
         var category = new Category { Title = "Benchmark Catalog" };
         var subcategory = new SubCategory { Title = "Benchmark Items", Category = category };
         db.Categories.Add(category);
+        db.SubCategories.Add(subcategory);
         await db.SaveChangesAsync();
 
         var users = Enumerable.Range(0, 2000).Select(index => new ApplicationUser
