@@ -41,14 +41,15 @@ public sealed class AdminProductEditorPage(IPage page)
     private static async Task SelectCurrentOrFirstOptionAsync(ILocator select)
     {
         await select.WaitForAsync();
-        var currentValue = await select.InputValueAsync();
+        var hasSelection = await select.EvaluateAsync<bool>("element => Boolean(element.value)");
+        if (hasSelection)
+        {
+            return;
+        }
+
         var value = await select.EvaluateAsync<string>(
             @"element => {
                 const selectElement = element;
-                if (selectElement.value) {
-                    return selectElement.value;
-                }
-
                 const nextOption = Array.from(selectElement.options).find(option => option.value);
                 return nextOption ? nextOption.value : '';
             }");
@@ -56,11 +57,6 @@ public sealed class AdminProductEditorPage(IPage page)
         if (string.IsNullOrWhiteSpace(value))
         {
             throw new InvalidOperationException("Nenhuma opcao selecionavel foi encontrada.");
-        }
-
-        if (string.Equals(currentValue, value, StringComparison.Ordinal))
-        {
-            return;
         }
 
         await select.SelectOptionAsync(new[] { value });
