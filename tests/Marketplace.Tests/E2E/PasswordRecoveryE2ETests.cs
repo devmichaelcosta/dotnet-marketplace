@@ -17,11 +17,13 @@ public sealed class PasswordRecoveryE2ETests(MarketplaceE2eFixture fixture)
         var response = session.Page.GetByTestId("recover-password-message");
 
         await loginInput.FillAsync(fixture.AdminUserName);
+        await loginInput.PressAsync("Tab");
         await submitButton.ClickAsync();
         await Expect(response).ToHaveTextAsync(
             "Se a conta estiver cadastrada e puder receber mensagens, enviaremos as instrucoes para o e-mail associado.");
 
         await loginInput.FillAsync("account-that-does-not-exist");
+        await loginInput.PressAsync("Tab");
         await submitButton.ClickAsync();
         await Expect(response).ToHaveTextAsync(
             "Se a conta estiver cadastrada e puder receber mensagens, enviaremos as instrucoes para o e-mail associado.");
