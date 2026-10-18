@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Marketplace.Tests.E2E.Pages;
 using Microsoft.Playwright;
 using static Microsoft.Playwright.Assertions;
@@ -12,10 +13,8 @@ public sealed class ProductToastThemeE2ETests(MarketplaceE2eFixture fixture)
     {
         await using var session = await fixture.CreateSessionAsync();
         var page = session.Page;
-        var loginPage = new LoginPage(page);
         var editorPage = new AdminProductEditorPage(page);
-
-        await loginPage.LoginAsync(fixture.AdminUserName, fixture.AdminPassword);
+        await SignInAsAdminAsync(page);
         var toggleTheme = page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Alternar tema" });
 
         foreach (var expectedTheme in new[] { "light", "dark" })
@@ -57,5 +56,25 @@ public sealed class ProductToastThemeE2ETests(MarketplaceE2eFixture fixture)
             await closeButton.ClickAsync();
             await Expect(notice).ToHaveCountAsync(0);
         }
+    }
+
+    private async Task SignInAsAdminAsync(IPage page)
+    {
+        var apiRequest = page.Context.APIRequest;
+        var antiforgeryUrl = new Uri(new Uri(fixture.ApiBaseUrl), "api/auth/antiforgery").ToString();
+        var antiforgeryResponse = await apiRequest.GetAsync(antiforgeryUrl);
+        Assert.True(antiforgeryResponse.Ok, await antiforgeryResponse.TextAsync());
+        using var payload = JsonDocument.Parse(await antiforgeryResponse.TextAsync());
+        var token = payload.RootElement.GetProperty("token").GetString();
+        Assert.False(string.IsNullOrWhiteSpace(token));
+
+        var loginUrl = new Uri(new Uri(fixture.ApiBaseUrl), "api/auth/login").ToString();
+        var loginResponse = await apiRequest.PostAsync(loginUrl, new APIRequestContextOptions
+        {
+            Data = JsonSerializer.Serialize(new { login = fixture.AdminUserName, password = fixture.AdminPassword }),
+            Headers = new Dictionary<string, string> { ["RequestVerificationToken"] = token! }
+        });
+
+        Assert.True(loginResponse.Ok, await loginResponse.TextAsync());
     }
 }

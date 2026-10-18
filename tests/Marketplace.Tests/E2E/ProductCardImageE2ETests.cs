@@ -13,31 +13,44 @@ public sealed class ProductCardImageE2ETests(MarketplaceE2eFixture fixture)
         var page = session.Page;
         var testImagePath = Path.Combine(fixture.SolutionRoot, "legado", "src", "assets", "img", "products", "Ibanez-RG-7420Z.jpg");
 
-        await page.RouteAsync("**/uploads/products/**", route => route.FulfillAsync(new RouteFulfillOptions
+        var interceptedImageRequests = 0;
+        await page.RouteAsync("**/*", async route =>
         {
-            Path = testImagePath
-        }));
+            if (route.Request.Url.Contains("/uploads/products/", StringComparison.OrdinalIgnoreCase))
+            {
+                Interlocked.Increment(ref interceptedImageRequests);
+                await route.FulfillAsync(new RouteFulfillOptions { Path = testImagePath });
+                return;
+            }
+
+            await route.ContinueAsync();
+        });
 
         await page.GotoAsync("/");
+        await page.EvaluateAsync<object?>("() => document.querySelectorAll('.market-product-card img').forEach(image => image.loading = 'eager')");
+        await page.WaitForFunctionAsync("() => { const image = document.querySelector('.market-product-card img'); return image && image.complete; }");
         var offerImage = page.Locator(".market-product-card img").First;
         await Expect(offerImage).ToBeVisibleAsync();
-        await offerImage.ScrollIntoViewIfNeededAsync();
-        Assert.True(await offerImage.EvaluateAsync<bool>("image => image.decode().then(() => image.naturalWidth > 0)"));
+        Assert.True(interceptedImageRequests > 0, "A URL de imagem do card deve ser carregada pelo navegador.");
+        Assert.True(await offerImage.EvaluateAsync<bool>("image => image.complete && image.naturalWidth > 0"));
         var offerImageUrl = await offerImage.GetAttributeAsync("src");
         Assert.Contains("/uploads/products/", offerImageUrl, StringComparison.OrdinalIgnoreCase);
 
         await page.GotoAsync("/?s=Ibanez");
+        await page.EvaluateAsync<object?>("() => document.querySelectorAll('.market-product-card img').forEach(image => image.loading = 'eager')");
+        await page.WaitForFunctionAsync("() => { const image = document.querySelector('.market-product-card img'); return image && image.complete; }");
         var searchImage = page.Locator(".market-product-card img").First;
         await Expect(searchImage).ToBeVisibleAsync();
-        await searchImage.ScrollIntoViewIfNeededAsync();
-        Assert.True(await searchImage.EvaluateAsync<bool>("image => image.decode().then(() => image.naturalWidth > 0)"));
+        Assert.True(await searchImage.EvaluateAsync<bool>("image => image.complete && image.naturalWidth > 0"));
         Assert.Contains("/uploads/products/", await searchImage.GetAttributeAsync("src"), StringComparison.OrdinalIgnoreCase);
 
         await searchImage.Locator("xpath=ancestor::a[contains(@class, 'market-product-media')]").ClickAsync();
         var detailImage = page.Locator(".legacy-product-main-image img").First;
         await Expect(detailImage).ToBeVisibleAsync();
-        Assert.True(await detailImage.EvaluateAsync<bool>("image => image.decode().then(() => image.naturalWidth > 0)"));
+        await page.WaitForFunctionAsync("() => { const image = document.querySelector('.legacy-product-main-image img'); return image && image.complete; }");
+        Assert.True(await detailImage.EvaluateAsync<bool>("image => image.complete && image.naturalWidth > 0"));
 
+        await page.UnrouteAsync("**/*");
         await page.RouteAsync("**/uploads/products/**", route => route.AbortAsync());
         await page.GotoAsync("/");
         await Expect(page.GetByTestId("product-image-fallback").First).ToBeVisibleAsync();
