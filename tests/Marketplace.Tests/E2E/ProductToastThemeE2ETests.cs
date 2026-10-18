@@ -61,14 +61,14 @@ public sealed class ProductToastThemeE2ETests(MarketplaceE2eFixture fixture)
     private async Task SignInAsAdminAsync(IPage page)
     {
         var apiRequest = page.Context.APIRequest;
-        var antiforgeryUrl = new Uri(new Uri(fixture.ApiBaseUrl), "api/auth/antiforgery").ToString();
+        var antiforgeryUrl = new Uri(new Uri(fixture.ApiBaseUrl), "auth/antiforgery").ToString();
         var antiforgeryResponse = await apiRequest.GetAsync(antiforgeryUrl);
         Assert.True(antiforgeryResponse.Ok, await antiforgeryResponse.TextAsync());
         using var payload = JsonDocument.Parse(await antiforgeryResponse.TextAsync());
         var token = payload.RootElement.GetProperty("token").GetString();
         Assert.False(string.IsNullOrWhiteSpace(token));
 
-        var loginUrl = new Uri(new Uri(fixture.ApiBaseUrl), "api/auth/login").ToString();
+        var loginUrl = new Uri(new Uri(fixture.ApiBaseUrl), "auth/login").ToString();
         var loginResponse = await apiRequest.PostAsync(loginUrl, new APIRequestContextOptions
         {
             Data = JsonSerializer.Serialize(new { login = fixture.AdminUserName, password = fixture.AdminPassword }),
