@@ -41,8 +41,7 @@ public sealed class AdminProductEditorPage(IPage page)
     private static async Task SelectCurrentOrFirstOptionAsync(ILocator select)
     {
         await select.WaitForAsync();
-        var hasSelection = await select.EvaluateAsync<bool>("element => Boolean(element.value)");
-        if (hasSelection)
+        if (string.Equals(await select.GetAttributeAsync("data-field-selected"), "true", StringComparison.Ordinal))
         {
             return;
         }
@@ -60,7 +59,8 @@ public sealed class AdminProductEditorPage(IPage page)
         }
 
         await select.SelectOptionAsync(new[] { value });
-        await Expect(select).ToHaveAttributeAsync("data-field-modified", "true");
+        await select.DispatchEventAsync("change");
+        await Expect(select).ToHaveAttributeAsync("data-field-selected", "true");
     }
 
     private static async Task FillAndCommitAsync(ILocator locator, string value)

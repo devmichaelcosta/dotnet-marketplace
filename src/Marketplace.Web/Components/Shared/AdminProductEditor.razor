@@ -72,7 +72,7 @@ else
                     {
                         <div class="col-md-3">
                             <label class="form-label" for="userId">Vendedor</label>
-                            <select id="userId" class="@FieldClass(() => form.UserId)" data-testid="admin-product-seller" data-field-modified="@FieldModified(() => form.UserId)" @bind="form.UserId">
+                            <select id="userId" class="@FieldClass(() => form.UserId)" data-testid="admin-product-seller" data-field-selected="@(form.UserId is not null ? "true" : "false")" @bind="form.UserId">
                                 <option value="">Selecione o vendedor...</option>
                                 @foreach (var seller in sellers)
                                 {
@@ -111,7 +111,7 @@ else
 
                     <div class="col-md-6">
                         <label class="form-label" for="categoryId">Categoria</label>
-                        <select id="categoryId" class="@CategoryFieldClass()" data-testid="admin-product-category" data-field-modified="@FieldModified(() => form.CategoryId)" @bind="form.CategoryId" @bind:after="OnCategoryChanged">
+                        <select id="categoryId" class="@CategoryFieldClass()" data-testid="admin-product-category" data-field-selected="@(form.CategoryId is not null ? "true" : "false")" @bind="form.CategoryId" @bind:after="OnCategoryChanged">
                             <option value="">Selecione</option>
                             @foreach (var category in categories)
                             {
@@ -123,7 +123,7 @@ else
 
                     <div class="col-md-6">
                         <label class="form-label" for="subCategoryId">Subcategoria</label>
-                        <select id="subCategoryId" class="@CategoryFieldClass()" data-testid="admin-product-subcategory" data-field-modified="@FieldModified(() => form.SubCategoryId)" @bind="form.SubCategoryId" disabled="@(!AvailableSubCategories.Any())">
+                        <select id="subCategoryId" class="@CategoryFieldClass()" data-testid="admin-product-subcategory" data-field-selected="@(form.SubCategoryId is not null ? "true" : "false")" @bind="form.SubCategoryId" disabled="@(!AvailableSubCategories.Any())">
                             <option value="">Selecione</option>
                             @foreach (var subCategory in AvailableSubCategories)
                             {
