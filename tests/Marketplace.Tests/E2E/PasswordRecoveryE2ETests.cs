@@ -11,6 +11,7 @@ public sealed class PasswordRecoveryE2ETests(MarketplaceE2eFixture fixture)
     {
         await using var session = await fixture.CreateSessionAsync();
         await session.Page.GotoAsync("/recover-password");
+        await session.Page.Locator("[data-testid='recover-password-form'][data-interactive-ready='true']").WaitForAsync();
 
         var loginInput = session.Page.GetByTestId("recover-password-login");
         var submitButton = session.Page.GetByTestId("recover-password-submit");

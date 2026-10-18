@@ -6,7 +6,7 @@ public sealed class AdminProductEditorPage(IPage page)
 {
     public async Task WaitForReadyAsync()
     {
-        await page.GetByTestId("admin-product-form").WaitForAsync();
+        await page.Locator("[data-testid='admin-product-form'][data-interactive-ready='true']").WaitForAsync();
     }
 
     public async Task FillForCreateAsync(AdminProductInput input)

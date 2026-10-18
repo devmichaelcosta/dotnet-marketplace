@@ -45,7 +45,7 @@ else
         }
 
         <div class="admin-import-card admin-product-card">
-            <EditForm EditContext="editContext" OnSubmit="HandleSubmitAsync" FormName="product-form" data-testid="admin-product-form">
+            <EditForm EditContext="editContext" OnSubmit="HandleSubmitAsync" FormName="product-form" data-testid="admin-product-form" data-interactive-ready="@(isInteractiveReady ? "true" : "false")">
                 <DataAnnotationsValidator />
 
                 @if (formErrors.Count > 0)
@@ -305,6 +305,7 @@ else
     private ValidationMessageStore? validationMessageStore;
     private readonly List<string> formErrors = [];
     private bool submitAttempted;
+    private bool isInteractiveReady;
 
     private bool attributeModalOpen;
     private string attributeSearch = string.Empty;
@@ -338,6 +339,17 @@ else
         State.Changed -= OnStateChanged;
         State.Changed += OnStateChanged;
         await LoadAsync();
+    }
+
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            isInteractiveReady = true;
+            StateHasChanged();
+        }
+
+        return Task.CompletedTask;
     }
 
     private async Task LoadAsync()

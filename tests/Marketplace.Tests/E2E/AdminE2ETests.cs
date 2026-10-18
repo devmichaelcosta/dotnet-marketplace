@@ -113,7 +113,24 @@ public sealed class AdminE2ETests(MarketplaceE2eFixture fixture)
         await productsPage.OpenCreateAsync();
         await editorPage.FillForCreateAsync(product);
         await editorPage.SaveAsync();
-        await session.Page.WaitForURLAsync("**/admin/products?saved=created");
+        try
+        {
+            await session.Page.WaitForURLAsync("**/admin/products?saved=created", new PageWaitForURLOptions
+            {
+                Timeout = 10000
+            });
+        }
+        catch (TimeoutException exception)
+        {
+            var validationMessages = await session.Page.Locator(".validation-message").AllTextContentsAsync();
+            var alerts = await session.Page.Locator("[role='alert']").AllTextContentsAsync();
+            throw new InvalidOperationException(
+                $"O produto nao foi salvo. URL atual: {session.Page.Url}. " +
+                $"Validacoes: {string.Join(" | ", validationMessages)}. " +
+                $"Alertas: {string.Join(" | ", alerts)}.",
+                exception);
+        }
+
         await productsPage.WaitForSuccessNoticeAsync();
         await productsPage.SearchAsync(sku);
         await productsPage.WaitForProductAsync(sku);
