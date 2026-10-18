@@ -1,4 +1,5 @@
 using Microsoft.Playwright;
+using static Microsoft.Playwright.Assertions;
 
 namespace Marketplace.Tests.E2E.Pages;
 
@@ -57,6 +58,7 @@ public sealed class AdminProductEditorPage(IPage page)
         }
 
         await select.SelectOptionAsync(new[] { value });
+        await Expect(select).ToHaveAttributeAsync("data-field-modified", "true");
     }
 
     private static async Task FillAndCommitAsync(ILocator locator, string value)
@@ -65,5 +67,6 @@ public sealed class AdminProductEditorPage(IPage page)
         await locator.PressAsync("Control+A");
         await locator.PressSequentiallyAsync(value);
         await locator.PressAsync("Tab");
+        await Expect(locator).ToHaveAttributeAsync("data-field-modified", "true");
     }
 }

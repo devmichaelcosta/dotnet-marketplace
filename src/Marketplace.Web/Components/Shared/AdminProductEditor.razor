@@ -64,7 +64,7 @@ else
                 <div class="row g-3">
                     <div class="col-md-6">
                         <label class="form-label" for="title">Titulo</label>
-                        <InputText id="title" class="@FieldClass(() => form.Title)" data-testid="admin-product-title" @bind-Value="form.Title" />
+                        <InputText id="title" class="@FieldClass(() => form.Title)" data-testid="admin-product-title" data-field-modified="@FieldModified(() => form.Title)" @bind-Value="form.Title" />
                         <ValidationMessage class="validation-message" For="() => form.Title" />
                     </div>
 
@@ -72,7 +72,7 @@ else
                     {
                         <div class="col-md-3">
                             <label class="form-label" for="userId">Vendedor</label>
-                            <select id="userId" class="@FieldClass(() => form.UserId)" data-testid="admin-product-seller" @bind="form.UserId">
+                            <select id="userId" class="@FieldClass(() => form.UserId)" data-testid="admin-product-seller" data-field-modified="@FieldModified(() => form.UserId)" @bind="form.UserId">
                                 <option value="">Selecione o vendedor...</option>
                                 @foreach (var seller in sellers)
                                 {
@@ -85,18 +85,18 @@ else
 
                     <div class="col-md-3">
                         <label class="form-label" for="price">Preco a vista</label>
-                        <InputNumber id="price" class="form-control" data-testid="admin-product-price" @bind-Value="form.Price" />
+                        <InputNumber id="price" class="form-control" data-testid="admin-product-price" data-field-modified="@FieldModified(() => form.Price)" @bind-Value="form.Price" />
                     </div>
 
                     <div class="col-md-3">
                         <label class="form-label" for="sku">SKU</label>
-                        <InputText id="sku" class="@FieldClass(() => form.Sku)" data-testid="admin-product-sku" @bind-Value="form.Sku" />
+                        <InputText id="sku" class="@FieldClass(() => form.Sku)" data-testid="admin-product-sku" data-field-modified="@FieldModified(() => form.Sku)" @bind-Value="form.Sku" />
                         <ValidationMessage class="validation-message" For="() => form.Sku" />
                     </div>
 
                     <div class="col-md-3">
                         <label class="form-label" for="stock">Estoque</label>
-                        <InputNumber id="stock" class="form-control" data-testid="admin-product-stock" @bind-Value="form.Stock" />
+                        <InputNumber id="stock" class="form-control" data-testid="admin-product-stock" data-field-modified="@FieldModified(() => form.Stock)" @bind-Value="form.Stock" />
                     </div>
 
                     <div class="col-md-6">
@@ -111,7 +111,7 @@ else
 
                     <div class="col-md-6">
                         <label class="form-label" for="categoryId">Categoria</label>
-                        <select id="categoryId" class="@CategoryFieldClass()" data-testid="admin-product-category" @bind="form.CategoryId" @bind:after="OnCategoryChanged">
+                        <select id="categoryId" class="@CategoryFieldClass()" data-testid="admin-product-category" data-field-modified="@FieldModified(() => form.CategoryId)" @bind="form.CategoryId" @bind:after="OnCategoryChanged">
                             <option value="">Selecione</option>
                             @foreach (var category in categories)
                             {
@@ -123,7 +123,7 @@ else
 
                     <div class="col-md-6">
                         <label class="form-label" for="subCategoryId">Subcategoria</label>
-                        <select id="subCategoryId" class="@CategoryFieldClass()" data-testid="admin-product-subcategory" @bind="form.SubCategoryId" disabled="@(!AvailableSubCategories.Any())">
+                        <select id="subCategoryId" class="@CategoryFieldClass()" data-testid="admin-product-subcategory" data-field-modified="@FieldModified(() => form.SubCategoryId)" @bind="form.SubCategoryId" disabled="@(!AvailableSubCategories.Any())">
                             <option value="">Selecione</option>
                             @foreach (var subCategory in AvailableSubCategories)
                             {
@@ -135,7 +135,7 @@ else
 
                     <div class="col-12">
                         <label class="form-label" for="description">Descricao</label>
-                        <InputTextArea id="description" class="@FieldClass(() => form.Description)" data-testid="admin-product-description" style="min-height:150px;" @bind-Value="form.Description" />
+                        <InputTextArea id="description" class="@FieldClass(() => form.Description)" data-testid="admin-product-description" data-field-modified="@FieldModified(() => form.Description)" style="min-height:150px;" @bind-Value="form.Description" />
                         <ValidationMessage class="validation-message" For="() => form.Description" />
                     </div>
 
@@ -645,6 +645,9 @@ else
         var shouldHighlight = submitAttempted || editContext.IsModified(fieldIdentifier);
         return hasErrors && shouldHighlight ? "form-control is-invalid" : "form-control";
     }
+
+    private string FieldModified<TField>(Expression<Func<TField>> accessor) =>
+        editContext.IsModified(FieldIdentifier.Create(accessor)) ? "true" : "false";
 
     private string CategoryFieldClass()
     {
