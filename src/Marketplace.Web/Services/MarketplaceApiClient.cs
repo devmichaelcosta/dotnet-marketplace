@@ -156,6 +156,41 @@ public sealed class MarketplaceApiClient(HttpClient http, ClientState state)
         return new RegisterResult(false, await ReadProblemMessageAsync(response, cancellationToken));
     }
 
+    public async Task<RegisterResult> RequestPasswordResetAsync(string? login, CancellationToken cancellationToken = default)
+    {
+        using var response = await http.PostAsJsonAsync(
+            "api/auth/password-reset/request",
+            new PasswordResetRequest(login),
+            cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            return new RegisterResult(false, await ReadProblemMessageAsync(response, cancellationToken));
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<PasswordResetRequestResponse>(cancellationToken);
+        return new RegisterResult(
+            true,
+            result?.Message ?? "Se a conta estiver cadastrada e puder receber mensagens, enviaremos as instrucoes para o e-mail associado.");
+    }
+
+    public async Task<RegisterResult> ResetPasswordAsync(
+        string? login,
+        string? token,
+        string? newPassword,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await http.PostAsJsonAsync(
+            "api/auth/password-reset/confirm",
+            new PasswordResetConfirmationRequest(login, token, newPassword),
+            cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            return new RegisterResult(false, await ReadProblemMessageAsync(response, cancellationToken));
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<PasswordResetConfirmationResponse>(cancellationToken);
+        return new RegisterResult(true, result?.Message ?? "Senha redefinida. Voce ja pode entrar com a nova senha.");
+    }
     private static async Task<string> ReadProblemMessageAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
         var problem = await ReadProblemAsync(response, cancellationToken, "Nao foi possivel concluir a operacao.");
@@ -1183,7 +1218,10 @@ public sealed record CheckoutResponse(int Id);
 public sealed record LoginResponse(string Token, LoginUser User);
 public sealed record LoginUser(Guid Id, string UserName, string Name, string[] Roles);
 public sealed record RegisterRequest(string Name, string LastName, string Login, string Password, string? Cpf);
-public sealed record RegisterResult(bool Succeeded, string Message);
+public sealed record PasswordResetRequest(string? Login);
+public sealed record PasswordResetRequestResponse(string Message);
+public sealed record PasswordResetConfirmationRequest(string? Login, string? Token, string? NewPassword);
+public sealed record PasswordResetConfirmationResponse(string Message);public sealed record RegisterResult(bool Succeeded, string Message);
 public sealed record UserProfile(Guid Id, string Login, string Name, string LastName, string? Cpf, string[] Roles, UserAddress[] Addresses);
 public sealed record UserAddress(Guid Id, int StateId, string State, string Street, string Cep, string Neighborhood, string City, string? Complement);
 public sealed record ProfileRequest(string Name, string LastName, string? Cpf, AddressRequest[] Addresses);

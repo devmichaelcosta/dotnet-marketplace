@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Restore, build, and test (.NET 10 / Windows)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      MarketplaceE2E__SqlServerInstance: MSSQLLocalDB
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 10 and NuGet cache
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+          cache: true
+          cache-dependency-path: |
+            **/*.csproj
+            **/packages.lock.json
+
+      - name: Start SQL Server LocalDB for E2E tests
+        shell: pwsh
+        run: |
+          $instances = sqllocaldb info
+          if ($instances -notcontains "MSSQLLocalDB") {
+            sqllocaldb create MSSQLLocalDB
+          }
+          sqllocaldb start MSSQLLocalDB
+          sqllocaldb info MSSQLLocalDB
+
+      - name: Restore
+        run: dotnet restore DotNetMarketplace.slnx
+
+      - name: Build
+        run: dotnet build DotNetMarketplace.slnx --configuration Release --no-restore
+
+      - name: Test (unit, integration, and Playwright E2E)
+        run: dotnet test DotNetMarketplace.slnx --configuration Release --no-build --no-restore --results-directory TestResults --logger "trx;LogFileName=marketplace-tests.trx"
+
+      - name: Upload test results and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: marketplace-test-results
+          path: |
+            TestResults/**/*.trx
+            tests/**/TestResults/**
+          if-no-files-found: warn
+          retention-days: 14

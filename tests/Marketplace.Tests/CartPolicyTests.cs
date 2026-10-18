@@ -1,5 +1,5 @@
 using Marketplace.Api.Domain;
-using Marketplace.Api.Features.Website.Cart.Shared;
+using Marketplace.Api.Modules.Cart.Website.Shared;
 
 namespace Marketplace.Tests;
 

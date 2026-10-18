@@ -27,7 +27,7 @@ public sealed class MarketplaceE2eFixture : IAsyncLifetime
     public string CustomerUserName => "tatiana";
 
     private string ConnectionString =>
-        $"Server=(localdb)\\SGPLocalDB;Database={_databaseName};Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True";
+        $"Server=(localdb)\\{Environment.GetEnvironmentVariable("MarketplaceE2E__SqlServerInstance") ?? "SGPLocalDB"};Database={_databaseName};Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True";
 
     public async Task InitializeAsync()
     {
@@ -40,7 +40,10 @@ public sealed class MarketplaceE2eFixture : IAsyncLifetime
                 ["ASPNETCORE_ENVIRONMENT"] = "Development",
                 ["DOTNET_ENVIRONMENT"] = "Development",
                 ["ConnectionStrings__Marketplace"] = ConnectionString,
-                ["SeedDatabase"] = "true"
+                ["SeedDatabase"] = "true",
+                ["Cors__AllowedOrigins__0"] = new Uri(WebBaseUrl).GetLeftPart(UriPartial.Authority),
+                ["PasswordReset__PublicWebBaseUrl"] = WebBaseUrl,
+                ["Jwt__Key"] = new string('e', 32)
             });
 
         await WaitForHttpSuccessAsync(new Uri(new Uri(ApiBaseUrl), "api/health"), _apiProcess, TimeSpan.FromSeconds(90));
@@ -196,6 +199,13 @@ public sealed class MarketplaceE2eFixture : IAsyncLifetime
 
     private sealed class ManagedHostProcess : IAsyncDisposable
     {
+        private static string BuildConfiguration =>
+#if DEBUG
+            "Debug";
+#else
+            "Release";
+#endif
+
         private readonly Process _process;
         private readonly StringBuilder _output = new();
         private readonly object _sync = new();
@@ -209,14 +219,20 @@ public sealed class MarketplaceE2eFixture : IAsyncLifetime
 
         public static ManagedHostProcess Start(string workingDirectory, string projectPath, string baseUrl, IReadOnlyDictionary<string, string?> environmentVariables)
         {
-            var startInfo = new ProcessStartInfo("dotnet", $"run --project {projectPath} --no-build --urls {baseUrl}")
+            var projectName = Path.GetFileNameWithoutExtension(projectPath);
+            var projectDirectory = Path.Combine(workingDirectory, Path.GetDirectoryName(projectPath)!);
+            var applicationPath = Path.Combine(projectDirectory, "bin", BuildConfiguration, "net10.0", projectName + ".dll");
+            var startInfo = new ProcessStartInfo("dotnet")
             {
-                WorkingDirectory = workingDirectory,
+                WorkingDirectory = projectDirectory,
                 UseShellExecute = false,
                 RedirectStandardError = true,
                 RedirectStandardOutput = true,
                 CreateNoWindow = true
             };
+            startInfo.ArgumentList.Add(applicationPath);
+            startInfo.ArgumentList.Add("--urls");
+            startInfo.ArgumentList.Add(baseUrl);
 
             foreach (var (key, value) in environmentVariables)
             {

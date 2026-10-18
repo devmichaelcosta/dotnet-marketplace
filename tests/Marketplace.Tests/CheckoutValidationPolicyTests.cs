@@ -1,4 +1,4 @@
-using Marketplace.Api.Features.Website.Cart.Checkout;
+using Marketplace.Api.Modules.Cart.Website.Checkout;
 
 namespace Marketplace.Tests;
 

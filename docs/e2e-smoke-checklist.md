@@ -1,38 +1,26 @@
 # Checklist de smoke E2E
 
-Os fluxos abaixo usam a mesma base de teste com banco LocalDB isolado por execução. A suíte pode ser executada com:
+A fixture E2E inicia API e Web em portas efemeras, cria um banco LocalDB exclusivo e usa Microsoft Edge headless. A suite pode ser executada com:
 
-```bash
-dotnet test DotNetMarketplace.slnx --filter FullyQualifiedName~Marketplace.Tests.E2E
-```
+    dotnet test DotNetMarketplace.slnx --filter FullyQualifiedName~Marketplace.Tests.E2E
 
-## Cobertura automatizada
+## Cobertura automatizada registrada
 
 | Perfil | Fluxo | Cobertura |
 | --- | --- | --- |
-| Anônimo | Abrir home pública | `Anonymous_user_can_open_public_home` |
-| Anônimo | Tentar acessar administração e ser redirecionado ao login | `Anonymous_user_is_redirected_to_login_when_accessing_admin_users` |
-| Anônimo | Home sem overflow horizontal em desktop e mobile | `Public_home_does_not_overflow_the_viewport` |
-| Comum | Login e abertura do perfil | `Customer_can_login_and_open_profile` |
-| Vendedor | Login e abertura da gestão de produtos | `Seller_can_login_and_open_product_management` |
-| Admin | Login e abertura da gestão de produtos | `Admin_can_login_and_open_product_management` |
-| Admin | Criar produto, pesquisar e reabrir edição | `Admin_can_create_product_end_to_end` |
+| Anonimo | Abrir home publica e verificar overflow horizontal em 1440x1000 e 390x844 | Anonymous_user_can_open_public_home; Public_home_does_not_overflow_the_viewport |
+| Anonimo | Tentar acessar administracao e ser redirecionado ao login | Anonymous_user_is_redirected_to_login_when_accessing_admin_users |
+| Cliente | Login e abertura do perfil | Customer_can_login_and_open_profile |
+| Vendedor | Login e abertura da gestao de produtos | Seller_can_login_and_open_product_management |
+| Admin | Login, listagem e criacao/edicao de produto | Admin_can_login_and_open_product_management; Admin_can_create_product_end_to_end |
+| Admin | Editar produto em tema claro e escuro; validar cores, role=status, aria-live e fechamento por teclado | Product_edit_success_notice_remains_readable_in_both_themes |
+| Publico | Carregar imagem em oferta, busca e detalhe; validar fallback quando o recurso falha | Product_images_load_in_home_offers_and_search_results |
+| Anonimo | Solicitar recuperacao para login existente e inexistente com resposta generica | Request_shows_same_response_for_existing_and_unknown_logins |
 
-## Checklist manual visual
+## Resultado automatizado desta execucao
 
-Após alterações de CSS ou componentes, revisar em viewport desktop e mobile:
+Em 2026-10-18, dotnet build DotNetMarketplace.slnx --no-restore -p:UseAppHost=false -m:1 -nr:false concluiu com zero erros. dotnet test DotNetMarketplace.slnx --no-build --no-restore concluiu com 142 aprovados, incluindo os fluxos E2E existentes naquele momento. Depois desse resultado, os testes dos bugs foram ampliados para os dois temas, foco por teclado, fechamento, falha de imagem e carregamento nos tres fluxos. O build dos testes continuou passando. A tentativa de rodar esses E2E ampliados ficou aguardando a API e foi interrompida em dois minutos: o runtime LocalDB retornou erro ao ler a configuracao de SGPLocalDB. Na verificacao mais recente, os 131 testes fora de E2E passaram; o novo E2E precisa ser repetido quando o LocalDB voltar a responder.
 
-- home, busca e detalhe do produto;
-- login, registro, recuperação e perfil;
-- carrinho vazio, carrinho com itens e checkout;
-- pedidos e produtos curtidos;
-- tabelas administrativas, filtros por `Enter`, ordenação e ações por ícone;
-- upload de imagens, carrossel e importação de planilha;
-- mensagens de sucesso/erro e navegação por teclado.
+## Limites da inspecao visual e de acessibilidade
 
-O checklist manual complementa os testes automatizados porque responsividade, contraste e alinhamento visual não são garantidos apenas pela suíte de comportamento.
-
-## Resultado desta rodada
-
-- A regressão automatizada de viewport passou em `1440x1000` e `390x844`.
-- A inspeção manual completa não foi concluída porque a instância local `SGPLocalDB` não pôde ser inicializada pelo runtime do Windows nesta máquina.
+A auditoria visual manual completa ainda nao foi executada. A cobertura automatizada atual nao percorre todas as paginas administrativas, estados de compra, navegacao por teclado de cada formulario, contraste WCAG AA em cada tema, nem a comparacao de navegacao com o legado. Os dois viewports sao verificados automaticamente apenas na home. Nao declarar a auditoria completa com base neste checklist parcial; a issue #4 permanece aberta ate registrar os fluxos e resultados que faltam.

@@ -1,5 +1,5 @@
-﻿using Marketplace.Api.Domain;
-using Marketplace.Api.Features.Admin.Produto.Shared;
+using Marketplace.Api.Domain;
+using Marketplace.Api.Modules.Produto.Admin.Shared;
 using Marketplace.Api.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 

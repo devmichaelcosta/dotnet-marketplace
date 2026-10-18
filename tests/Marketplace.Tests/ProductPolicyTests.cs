@@ -1,4 +1,4 @@
-﻿using Marketplace.Api.Features.Admin.Produto.Create;
+using Marketplace.Api.Modules.Produto.Admin.Create;
 
 namespace Marketplace.Tests;
 
