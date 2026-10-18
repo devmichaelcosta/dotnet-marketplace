@@ -11,13 +11,11 @@ public sealed class ProductCardImageE2ETests(MarketplaceE2eFixture fixture)
     {
         await using var session = await fixture.CreateSessionAsync();
         var page = session.Page;
-        var testImage = "<svg xmlns='http://www.w3.org/2000/svg' width='1' height='1'></svg>";
+        var testImagePath = Path.Combine(fixture.SolutionRoot, "legado", "src", "assets", "img", "products", "Ibanez-RG-7420Z.jpg");
 
         await page.RouteAsync("**/uploads/products/**", route => route.FulfillAsync(new RouteFulfillOptions
         {
-            Status = 200,
-            ContentType = "image/svg+xml",
-            Body = testImage
+            Path = testImagePath
         }));
 
         await page.GotoAsync("/");
