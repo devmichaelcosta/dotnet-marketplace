@@ -72,7 +72,11 @@ public sealed class ProductToastThemeE2ETests(MarketplaceE2eFixture fixture)
         var loginResponse = await apiRequest.PostAsync(loginUrl, new APIRequestContextOptions
         {
             Data = JsonSerializer.Serialize(new { login = fixture.AdminUserName, password = fixture.AdminPassword }),
-            Headers = new Dictionary<string, string> { ["RequestVerificationToken"] = token! }
+            Headers = new Dictionary<string, string>
+            {
+                ["Content-Type"] = "application/json",
+                ["RequestVerificationToken"] = token!
+            }
         });
 
         Assert.True(loginResponse.Ok, await loginResponse.TextAsync());
