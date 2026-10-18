@@ -11,10 +11,19 @@ public sealed class ProductCardImageE2ETests(MarketplaceE2eFixture fixture)
     {
         await using var session = await fixture.CreateSessionAsync();
         var page = session.Page;
+        var testImage = "<svg xmlns='http://www.w3.org/2000/svg' width='1' height='1'></svg>";
+
+        await page.RouteAsync("**/uploads/products/**", route => route.FulfillAsync(new RouteFulfillOptions
+        {
+            Status = 200,
+            ContentType = "image/svg+xml",
+            Body = testImage
+        }));
 
         await page.GotoAsync("/");
         var offerImage = page.Locator(".market-product-card img").First;
         await Expect(offerImage).ToBeVisibleAsync();
+        await offerImage.ScrollIntoViewIfNeededAsync();
         Assert.True(await offerImage.EvaluateAsync<bool>("image => image.decode().then(() => image.naturalWidth > 0)"));
         var offerImageUrl = await offerImage.GetAttributeAsync("src");
         Assert.Contains("/uploads/products/", offerImageUrl, StringComparison.OrdinalIgnoreCase);
@@ -22,6 +31,7 @@ public sealed class ProductCardImageE2ETests(MarketplaceE2eFixture fixture)
         await page.GotoAsync("/?s=Ibanez");
         var searchImage = page.Locator(".market-product-card img").First;
         await Expect(searchImage).ToBeVisibleAsync();
+        await searchImage.ScrollIntoViewIfNeededAsync();
         Assert.True(await searchImage.EvaluateAsync<bool>("image => image.decode().then(() => image.naturalWidth > 0)"));
         Assert.Contains("/uploads/products/", await searchImage.GetAttributeAsync("src"), StringComparison.OrdinalIgnoreCase);
 

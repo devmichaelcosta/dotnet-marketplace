@@ -33,9 +33,7 @@ public sealed class LoginPage(IPage page)
 
     private static async Task FillAndCommitAsync(ILocator locator, string value)
     {
-        await locator.ClickAsync();
-        await locator.PressAsync("Control+A");
-        await locator.PressSequentiallyAsync(value);
+        await locator.FillAsync(value);
         await locator.PressAsync("Tab");
     }
 }
