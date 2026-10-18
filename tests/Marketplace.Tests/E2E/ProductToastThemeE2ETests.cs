@@ -15,6 +15,8 @@ public sealed class ProductToastThemeE2ETests(MarketplaceE2eFixture fixture)
         var page = session.Page;
         var editorPage = new AdminProductEditorPage(page);
         await SignInAsAdminAsync(page);
+        await page.GotoAsync("/admin/products");
+        await page.GetByTestId("admin-products-table").WaitForAsync();
         var toggleTheme = page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Alternar tema" });
 
         foreach (var expectedTheme in new[] { "light", "dark" })
