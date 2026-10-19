@@ -43,6 +43,11 @@ public sealed class AdminProductEditorPage(IPage page)
     private static async Task SelectCurrentOrFirstOptionAsync(ILocator select)
     {
         await select.WaitForAsync();
+        if (!string.IsNullOrWhiteSpace(await select.InputValueAsync()))
+        {
+            return;
+        }
+
         var value = await select.EvaluateAsync<string>(
             @"element => {
                 const selectElement = element;
@@ -55,7 +60,8 @@ public sealed class AdminProductEditorPage(IPage page)
             throw new InvalidOperationException("Nenhuma opcao selecionavel foi encontrada.");
         }
 
-        await select.SelectOptionAsync(new[] { value });
+        await select.FocusAsync();
+        await select.PressAsync("ArrowDown");
         await Expect(select).ToHaveValueAsync(value);
     }
 
