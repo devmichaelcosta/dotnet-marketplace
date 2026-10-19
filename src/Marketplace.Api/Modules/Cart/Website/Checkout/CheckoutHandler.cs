@@ -45,14 +45,6 @@ public sealed class CheckoutHandler(MarketplaceDbContext db)
             IsolationLevel.Serializable,
             cancellationToken);
 
-        foreach (var item in cart.Items)
-        {
-            if (item.Product!.Stock < item.Quantity)
-            {
-                return Results.BadRequest(new { Message = $"Estoque insuficiente para {item.Product.Title}." });
-            }
-        }
-
         var order = new Order
         {
             UserId = userId.Value,
@@ -73,9 +65,21 @@ public sealed class CheckoutHandler(MarketplaceDbContext db)
             }).ToList()
         };
 
-        foreach (var item in cart.Items)
+        foreach (var item in cart.Items.OrderBy(item => item.ProductId))
         {
-            item.Product!.Stock -= item.Quantity;
+            var affectedRows = await db.Products
+                .Where(product => product.Id == item.ProductId && product.Stock >= item.Quantity)
+                .ExecuteUpdateAsync(
+                    setters => setters.SetProperty(
+                        product => product.Stock,
+                        product => product.Stock - item.Quantity),
+                    cancellationToken);
+
+            if (affectedRows != 1)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return Results.BadRequest(new { Message = $"Estoque insuficiente para {item.Product!.Title}." });
+            }
         }
 
         db.Orders.Add(order);
