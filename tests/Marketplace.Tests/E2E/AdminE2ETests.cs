@@ -100,7 +100,7 @@ public sealed class AdminE2ETests(MarketplaceE2eFixture fixture)
             Title: title,
             Description: "Produto criado por teste E2E para validar o fluxo administrativo.",
             Sku: sku,
-            Price: "199.90",
+            Price: "199",
             Stock: "7");
 
         await using var session = await fixture.CreateSessionAsync();

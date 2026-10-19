@@ -69,6 +69,11 @@ public sealed class AdminProductEditorPage(IPage page)
     {
         await locator.FillAsync(value);
         await locator.BlurAsync();
+        if (string.Equals(await locator.GetAttributeAsync("type"), "number", StringComparison.OrdinalIgnoreCase))
+        {
+            await locator.DispatchEventAsync("change");
+        }
+
         await Expect(locator).ToHaveAttributeAsync("data-field-modified", "true");
     }
 }
