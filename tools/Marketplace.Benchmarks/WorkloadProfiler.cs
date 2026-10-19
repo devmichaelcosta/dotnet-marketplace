@@ -157,7 +157,11 @@ public sealed class WorkloadProfiler(DbContextOptions<MarketplaceDbContext> opti
 
         var imagePath = Path.Combine(Directory.GetCurrentDirectory(), "src", "Marketplace.Api", "wwwroot", "uploads", "products", "Ibanez-RG-7420Z.jpg");
         var imageBytes = await File.ReadAllBytesAsync(imagePath, cancellationToken);
-        using var loggerFactory = LoggerFactory.Create(_ => { });
+        using var loggerFactory = LoggerFactory.Create(builder =>
+        {
+            builder.SetMinimumLevel(LogLevel.Error);
+            builder.AddConsole();
+        });
         await using var importDb = CreateDbContext();
         var downloader = new ProductImportImageDownloader(new BenchmarkHttpClientFactory(imageBytes), environment);
         var processor = new ProductImportProcessor(importDb, environment, downloader, loggerFactory.CreateLogger<ProductImportProcessor>());
