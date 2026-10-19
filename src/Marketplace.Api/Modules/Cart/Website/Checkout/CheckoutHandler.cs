@@ -42,7 +42,7 @@ public sealed class CheckoutHandler(MarketplaceDbContext db)
         }
 
         await using IDbContextTransaction transaction = await db.Database.BeginTransactionAsync(
-            IsolationLevel.Serializable,
+            IsolationLevel.ReadCommitted,
             cancellationToken);
 
         var order = new Order
