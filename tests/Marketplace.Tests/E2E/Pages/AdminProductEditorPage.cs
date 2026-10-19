@@ -14,7 +14,6 @@ public sealed class AdminProductEditorPage(IPage page)
     {
         await WaitForReadyAsync();
 
-        await FillAndCommitAsync(page.GetByTestId("admin-product-title"), input.Title);
         await SelectCurrentOrFirstOptionAsync(page.GetByTestId("admin-product-seller"));
         await FillAndCommitAsync(page.GetByTestId("admin-product-price"), input.Price);
         await FillAndCommitAsync(page.GetByTestId("admin-product-sku"), input.Sku);
@@ -26,6 +25,9 @@ public sealed class AdminProductEditorPage(IPage page)
         });
         await SelectCurrentOrFirstOptionAsync(page.GetByTestId("admin-product-subcategory"));
         await FillAndCommitAsync(page.GetByTestId("admin-product-description"), input.Description);
+        var title = page.GetByTestId("admin-product-title");
+        await FillAndCommitAsync(title, input.Title);
+        await Expect(title).ToHaveAttributeAsync("data-bound-value", input.Title);
     }
 
     public async Task UpdateStockAsync(string stock)

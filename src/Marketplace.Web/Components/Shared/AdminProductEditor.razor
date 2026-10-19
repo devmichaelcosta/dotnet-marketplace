@@ -64,7 +64,7 @@ else
                 <div class="row g-3">
                     <div class="col-md-6">
                         <label class="form-label" for="title">Titulo</label>
-                        <InputText id="title" class="@FieldClass(() => form.Title)" data-testid="admin-product-title" data-field-modified="@FieldModified(() => form.Title)" @bind-Value="form.Title" />
+                        <InputText id="title" class="@FieldClass(() => form.Title)" data-testid="admin-product-title" data-field-modified="@FieldModified(() => form.Title)" data-bound-value="@form.Title" @bind-Value="form.Title" />
                         <ValidationMessage class="validation-message" For="() => form.Title" />
                     </div>
 

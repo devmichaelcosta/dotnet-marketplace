@@ -124,8 +124,12 @@ public sealed class AdminE2ETests(MarketplaceE2eFixture fixture)
         {
             var validationMessages = await session.Page.Locator(".validation-message").AllTextContentsAsync();
             var alerts = await session.Page.Locator("[role='alert']").AllTextContentsAsync();
+            var titleInput = session.Page.GetByTestId("admin-product-title");
+            var titleValue = await titleInput.InputValueAsync();
+            var boundTitle = await titleInput.GetAttributeAsync("data-bound-value");
             throw new InvalidOperationException(
                 $"O produto nao foi salvo. URL atual: {session.Page.Url}. " +
+                $"Titulo no campo: '{titleValue}', titulo no modelo: '{boundTitle}'. " +
                 $"Validacoes: {string.Join(" | ", validationMessages)}. " +
                 $"Alertas: {string.Join(" | ", alerts)}.",
                 exception);
