@@ -66,6 +66,11 @@ public sealed class ProductImportProcessor(
 
             await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
             var resultItems = await UpsertProductsAsync(rows, validation, cancellationToken);
+            foreach (var item in resultItems)
+            {
+                item.JobId = job.Id;
+            }
+
             db.ProductImportJobItems.AddRange(resultItems);
             CompleteSuccess(job, stopwatch, rows, resultItems);
             await db.SaveChangesAsync(cancellationToken);
@@ -398,6 +403,11 @@ public sealed class ProductImportProcessor(
         job.UpdatedCount = 0;
         job.ErrorCount = items.Count(item => item.Status == ProductImportJobItemStatus.Error);
         job.SummaryMessage = message;
+        foreach (var item in items)
+        {
+            item.JobId = job.Id;
+        }
+
         db.ProductImportJobItems.AddRange(items);
     }
 
