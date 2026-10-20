@@ -1,6 +1,6 @@
-﻿using Marketplace.Api.Domain;
-using Marketplace.Api.Features.Admin.Produto.ProductImports.SearchJobs;
-using Marketplace.Api.Features.Admin.Produto.ProductImports.Shared;
+using Marketplace.Api.Domain;
+using Marketplace.Api.Modules.ProductImports.Admin.SearchJobs;
+using Marketplace.Api.Modules.ProductImports.Admin.Shared;
 using Marketplace.Api.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using NPOI.XSSF.UserModel;

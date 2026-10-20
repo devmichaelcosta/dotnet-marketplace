@@ -4093,6 +4093,17 @@ input {
     background: #ffffff;
 }
 
+.admin-toast,
+.admin-toast strong,
+.admin-toast .admin-toast-close {
+    color: #172033;
+}
+
+.admin-toast-close:focus-visible {
+    outline: 2px solid #172033;
+    outline-offset: 2px;
+    box-shadow: none;
+}
 .admin-toast strong {
     display: block;
     margin-bottom: 0.15rem;

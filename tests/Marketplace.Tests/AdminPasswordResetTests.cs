@@ -1,5 +1,5 @@
-using Marketplace.Api.Features.Admin.Shared;
-using Marketplace.Api.Features.Admin.Users.ResetPassword;
+using Marketplace.Api.Shared.Admin;
+using Marketplace.Api.Modules.Users.Admin.ResetPassword;
 using Marketplace.Api.Infrastructure.Persistence;
 
 namespace Marketplace.Tests;

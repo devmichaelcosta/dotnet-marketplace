@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Restore, build, and test (.NET 10 / Windows)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      MarketplaceE2E__SqlServerInstance: SGPLocalDB
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 10 and NuGet cache
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+          cache: true
+          cache-dependency-path: |
+            **/*.csproj
+            **/packages.lock.json
+
+      - name: Start SQL Server LocalDB for E2E tests
+        shell: pwsh
+        run: |
+          $instances = sqllocaldb info
+          if ($instances -notcontains "SGPLocalDB") {
+            sqllocaldb create SGPLocalDB
+          }
+          sqllocaldb start SGPLocalDB
+          sqllocaldb info SGPLocalDB
+
+      - name: Restore
+        run: dotnet restore DotNetMarketplace.slnx
+
+      - name: Build
+        run: dotnet build DotNetMarketplace.slnx --configuration Release --no-restore
+
+      - name: Test (unit, integration, and Playwright E2E)
+        run: dotnet test DotNetMarketplace.slnx --configuration Release --no-build --no-restore --results-directory TestResults --logger "trx;LogFileName=marketplace-tests.trx"
+
+      - name: Run repeatable performance baseline
+        run: |
+          dotnet restore tools/Marketplace.Benchmarks/Marketplace.Benchmarks.csproj
+          $env:MARKETPLACE_BENCHMARK_CONNECTION = "Server=(localdb)\SGPLocalDB;Database=DotNetMarketplace_Benchmark_$env:GITHUB_RUN_ID;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True"
+          dotnet run --project tools/Marketplace.Benchmarks/Marketplace.Benchmarks.csproj --configuration Release --no-restore
+
+      - name: Upload test results and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: marketplace-test-results
+          path: |
+            TestResults/**/*.trx
+            tests/**/TestResults/**
+            .tmp/performance-baseline/results.json
+          if-no-files-found: warn
+          retention-days: 14

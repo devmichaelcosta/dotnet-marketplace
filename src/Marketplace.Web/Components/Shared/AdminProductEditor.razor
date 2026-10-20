@@ -45,7 +45,7 @@ else
         }
 
         <div class="admin-import-card admin-product-card">
-            <EditForm EditContext="editContext" OnSubmit="HandleSubmitAsync" FormName="product-form" data-testid="admin-product-form">
+            <EditForm EditContext="editContext" OnSubmit="HandleSubmitAsync" FormName="product-form" data-testid="admin-product-form" data-interactive-ready="@(isInteractiveReady ? "true" : "false")">
                 <DataAnnotationsValidator />
 
                 @if (formErrors.Count > 0)
@@ -64,7 +64,7 @@ else
                 <div class="row g-3">
                     <div class="col-md-6">
                         <label class="form-label" for="title">Titulo</label>
-                        <InputText id="title" class="@FieldClass(() => form.Title)" data-testid="admin-product-title" @bind-Value="form.Title" />
+                        <InputText id="title" class="@FieldClass(() => form.Title)" data-testid="admin-product-title" data-field-modified="@FieldModified(() => form.Title)" data-bound-value="@form.Title" @bind-Value="form.Title" />
                         <ValidationMessage class="validation-message" For="() => form.Title" />
                     </div>
 
@@ -85,18 +85,18 @@ else
 
                     <div class="col-md-3">
                         <label class="form-label" for="price">Preco a vista</label>
-                        <InputNumber id="price" class="form-control" data-testid="admin-product-price" @bind-Value="form.Price" />
+                        <InputNumber id="price" class="form-control" data-testid="admin-product-price" data-field-modified="@FieldModified(() => form.Price)" @bind-Value="form.Price" />
                     </div>
 
                     <div class="col-md-3">
                         <label class="form-label" for="sku">SKU</label>
-                        <InputText id="sku" class="@FieldClass(() => form.Sku)" data-testid="admin-product-sku" @bind-Value="form.Sku" />
+                        <InputText id="sku" class="@FieldClass(() => form.Sku)" data-testid="admin-product-sku" data-field-modified="@FieldModified(() => form.Sku)" @bind-Value="form.Sku" />
                         <ValidationMessage class="validation-message" For="() => form.Sku" />
                     </div>
 
                     <div class="col-md-3">
                         <label class="form-label" for="stock">Estoque</label>
-                        <InputNumber id="stock" class="form-control" data-testid="admin-product-stock" @bind-Value="form.Stock" />
+                        <InputNumber id="stock" class="form-control" data-testid="admin-product-stock" data-field-modified="@FieldModified(() => form.Stock)" @bind-Value="form.Stock" />
                     </div>
 
                     <div class="col-md-6">
@@ -135,7 +135,7 @@ else
 
                     <div class="col-12">
                         <label class="form-label" for="description">Descricao</label>
-                        <InputTextArea id="description" class="@FieldClass(() => form.Description)" data-testid="admin-product-description" style="min-height:150px;" @bind-Value="form.Description" />
+                        <InputTextArea id="description" class="@FieldClass(() => form.Description)" data-testid="admin-product-description" data-field-modified="@FieldModified(() => form.Description)" style="min-height:150px;" @bind-Value="form.Description" />
                         <ValidationMessage class="validation-message" For="() => form.Description" />
                     </div>
 
@@ -305,6 +305,7 @@ else
     private ValidationMessageStore? validationMessageStore;
     private readonly List<string> formErrors = [];
     private bool submitAttempted;
+    private bool isInteractiveReady;
 
     private bool attributeModalOpen;
     private string attributeSearch = string.Empty;
@@ -338,6 +339,17 @@ else
         State.Changed -= OnStateChanged;
         State.Changed += OnStateChanged;
         await LoadAsync();
+    }
+
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            isInteractiveReady = true;
+            StateHasChanged();
+        }
+
+        return Task.CompletedTask;
     }
 
     private async Task LoadAsync()
@@ -633,6 +645,9 @@ else
         var shouldHighlight = submitAttempted || editContext.IsModified(fieldIdentifier);
         return hasErrors && shouldHighlight ? "form-control is-invalid" : "form-control";
     }
+
+    private string FieldModified<TField>(Expression<Func<TField>> accessor) =>
+        editContext.IsModified(FieldIdentifier.Create(accessor)) ? "true" : "false";
 
     private string CategoryFieldClass()
     {

@@ -39,7 +39,7 @@
         }
         else
         {
-            <EditForm Model="form" OnValidSubmit="SignInAsync" FormName="login-form" class="legacy-auth-card auth-card-panel" data-testid="login-form">
+            <EditForm Model="form" OnValidSubmit="SignInAsync" FormName="login-form" class="legacy-auth-card auth-card-panel" data-testid="login-form" data-interactive-ready="@(isInteractiveReady ? "true" : "false")">
                 <DataAnnotationsValidator />
                 <span class="market-eyebrow text-center">Bem-vindo de volta</span>
                 <h2 class="auth-card-title">Entre para continuar comprando</h2>
@@ -68,6 +68,18 @@
 @code {
     private LoginForm form = new();
     private string? error;
+    private bool isInteractiveReady;
+
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            isInteractiveReady = true;
+            StateHasChanged();
+        }
+
+        return Task.CompletedTask;
+    }
 
     private async Task SignInAsync()
     {

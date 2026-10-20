@@ -7,7 +7,7 @@ public sealed class LoginPage(IPage page)
     public async Task NavigateAsync()
     {
         await page.GotoAsync("/login");
-        await page.GetByTestId("login-form").WaitForAsync();
+        await page.Locator("[data-testid='login-form'][data-interactive-ready='true']").WaitForAsync();
     }
 
     public async Task LoginAsync(string userName, string password)
@@ -33,9 +33,7 @@ public sealed class LoginPage(IPage page)
 
     private static async Task FillAndCommitAsync(ILocator locator, string value)
     {
-        await locator.ClickAsync();
-        await locator.PressAsync("Control+A");
-        await locator.PressSequentiallyAsync(value);
-        await locator.PressAsync("Tab");
+        await locator.FillAsync(value);
+        await locator.BlurAsync();
     }
 }

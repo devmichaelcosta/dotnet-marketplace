@@ -100,7 +100,7 @@ public sealed class AdminE2ETests(MarketplaceE2eFixture fixture)
             Title: title,
             Description: "Produto criado por teste E2E para validar o fluxo administrativo.",
             Sku: sku,
-            Price: "199.90",
+            Price: "199",
             Stock: "7");
 
         await using var session = await fixture.CreateSessionAsync();
@@ -113,7 +113,28 @@ public sealed class AdminE2ETests(MarketplaceE2eFixture fixture)
         await productsPage.OpenCreateAsync();
         await editorPage.FillForCreateAsync(product);
         await editorPage.SaveAsync();
-        await session.Page.WaitForURLAsync("**/admin/products?saved=created");
+        try
+        {
+            await session.Page.WaitForURLAsync("**/admin/products?saved=created", new PageWaitForURLOptions
+            {
+                Timeout = 10000
+            });
+        }
+        catch (TimeoutException exception)
+        {
+            var validationMessages = await session.Page.Locator(".validation-message").AllTextContentsAsync();
+            var alerts = await session.Page.Locator("[role='alert']").AllTextContentsAsync();
+            var titleInput = session.Page.GetByTestId("admin-product-title");
+            var titleValue = await titleInput.InputValueAsync();
+            var boundTitle = await titleInput.GetAttributeAsync("data-bound-value");
+            throw new InvalidOperationException(
+                $"O produto nao foi salvo. URL atual: {session.Page.Url}. " +
+                $"Titulo no campo: '{titleValue}', titulo no modelo: '{boundTitle}'. " +
+                $"Validacoes: {string.Join(" | ", validationMessages)}. " +
+                $"Alertas: {string.Join(" | ", alerts)}.",
+                exception);
+        }
+
         await productsPage.WaitForSuccessNoticeAsync();
         await productsPage.SearchAsync(sku);
         await productsPage.WaitForProductAsync(sku);

@@ -155,10 +155,14 @@ window.marketplaceUi = {
 };
 
 window.marketplaceSession = {
+    authUrl(path) {
+        const baseUrl = document.querySelector("meta[name='marketplace-api-base-url']")?.content || window.location.origin + "/";
+        return new URL(`auth/${path}`, baseUrl).toString();
+    },
     async antiforgeryToken() {
-        const response = await fetch("/auth/antiforgery", {
+        const response = await fetch(this.authUrl("antiforgery"), {
             method: "GET",
-            credentials: "same-origin"
+            credentials: "include"
         });
 
         if (!response.ok) {
@@ -174,9 +178,9 @@ window.marketplaceSession = {
     },
     async login(login, password) {
         const token = await this.antiforgeryToken();
-        const response = await fetch("/auth/login", {
+        const response = await fetch(this.authUrl("login"), {
             method: "POST",
-            credentials: "same-origin",
+            credentials: "include",
             headers: {
                 "Content-Type": "application/json",
                 "RequestVerificationToken": token
@@ -200,9 +204,9 @@ window.marketplaceSession = {
     },
     async logout() {
         const token = await this.antiforgeryToken();
-        await fetch("/auth/logout", {
+        await fetch(this.authUrl("logout"), {
             method: "POST",
-            credentials: "same-origin",
+            credentials: "include",
             headers: {
                 "RequestVerificationToken": token
             }

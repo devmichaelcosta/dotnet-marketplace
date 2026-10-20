@@ -1,6 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Text;
 using Marketplace.Api.Domain;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
@@ -21,7 +20,7 @@ public sealed class TokenService(IConfiguration configuration, UserManager<Appli
         };
         claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
 
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["Jwt:Key"] ?? "development-only-marketplace-secret-key-32"));
+        var key = JwtSigningKey.Create(configuration["Jwt:Key"]);
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
         var token = new JwtSecurityToken(
             issuer: configuration["Jwt:Issuer"] ?? "Marketplace",

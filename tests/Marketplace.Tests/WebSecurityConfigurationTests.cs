@@ -1,16 +1,23 @@
-﻿namespace Marketplace.Tests;
+namespace Marketplace.Tests;
 
 public sealed class WebSecurityConfigurationTests
 {
     [Fact]
-    public void Web_auth_endpoints_validate_antiforgery_tokens()
+    public void Auth_session_endpoints_live_in_api_and_validate_antiforgery_tokens()
     {
-        var program = ReadSource("src", "Marketplace.Web", "Program.cs");
+        var webProgram = ReadSource("src", "Marketplace.Web", "Program.cs");
+        var authModule = ReadSource("src", "Marketplace.Api", "Modules", "Auth", "Website", "WebsiteAuthModule.cs");
+        var loginEndpoint = ReadSource("src", "Marketplace.Api", "Modules", "Auth", "Website", "Session", "CreateSessionEndpoint.cs");
+        var logoutEndpoint = ReadSource("src", "Marketplace.Api", "Modules", "Auth", "Website", "Session", "DeleteSessionEndpoint.cs");
 
-        Assert.Contains("app.MapGet(\"/auth/antiforgery\"", program);
-        Assert.Contains("IAntiforgery antiforgery", program);
-        Assert.Contains("await antiforgery.ValidateRequestAsync(http)", program);
-        Assert.DoesNotContain("DisableAntiforgery", program);
+        Assert.DoesNotContain("app.MapGet(\"/auth/antiforgery\"", webProgram);
+        Assert.DoesNotContain("app.MapPost(\"/auth/login\"", webProgram);
+        Assert.DoesNotContain("app.MapPost(\"/auth/logout\"", webProgram);
+        Assert.Contains("app.MapGroup(\"/auth\")", authModule);
+        Assert.Contains("GetAntiforgeryTokenEndpoint.Map(sessionGroup)", authModule);
+        Assert.Contains("await antiforgery.ValidateRequestAsync(http)", loginEndpoint);
+        Assert.Contains("await antiforgery.ValidateRequestAsync(http)", logoutEndpoint);
+        Assert.DoesNotContain("DisableAntiforgery", loginEndpoint);
     }
 
     [Theory]
@@ -248,11 +255,11 @@ public sealed class WebSecurityConfigurationTests
     [Fact]
     public void Product_images_are_normalized_to_file_names_before_persisting()
     {
-        var createApi = ReadSource("src", "Marketplace.Api", "Features", "Admin", "Produto", "Create", "CreateProductHandler.cs");
-        var updateApi = ReadSource("src", "Marketplace.Api", "Features", "Admin", "Produto", "Update", "UpdateProductHandler.cs");
-        var storageApi = ReadSource("src", "Marketplace.Api", "Features", "Website", "Produto", "Shared", "ProductImageStorage.cs");
-        var catalogApi = ReadSource("src", "Marketplace.Api", "Features", "Website", "Catalog", "ProductImagePath.cs");
-        var importsApi = ReadSource("src", "Marketplace.Api", "Features", "Admin", "Produto", "ProductImports", "Shared", "ProductImportImageDownloader.cs");
+        var createApi = ReadSource("src", "Marketplace.Api", "Modules", "Produto", "Admin", "Create", "CreateProductHandler.cs");
+        var updateApi = ReadSource("src", "Marketplace.Api", "Modules", "Produto", "Admin", "Update", "UpdateProductHandler.cs");
+        var storageApi = ReadSource("src", "Marketplace.Api", "Modules", "Produto", "Website", "Shared", "ProductImageStorage.cs");
+        var catalogApi = ReadSource("src", "Marketplace.Api", "Modules", "Catalog", "Website", "Shared", "ProductImagePath.cs");
+        var importsApi = ReadSource("src", "Marketplace.Api", "Modules", "ProductImports", "Admin", "Shared", "ProductImportImageDownloader.cs");
 
         Assert.Contains("imagesWriter.Build(request.Images)", createApi);
         Assert.Contains("imagesWriter.Replace(product, request.Images, db)", updateApi);
@@ -264,11 +271,11 @@ public sealed class WebSecurityConfigurationTests
     [Fact]
     public void Product_admin_mutations_use_explicit_database_transactions()
     {
-        var createApi = ReadSource("src", "Marketplace.Api", "Features", "Admin", "Produto", "Create", "CreateProductHandler.cs");
-        var updateApi = ReadSource("src", "Marketplace.Api", "Features", "Admin", "Produto", "Update", "UpdateProductHandler.cs");
-        var deleteApi = ReadSource("src", "Marketplace.Api", "Features", "Admin", "Produto", "Delete", "DeleteProductHandler.cs");
-        var deleteImageApi = ReadSource("src", "Marketplace.Api", "Features", "Admin", "Produto", "DeleteImage", "DeleteProductImageHandler.cs");
-        var similarApi = ReadSource("src", "Marketplace.Api", "Features", "Admin", "Produto", "SaveSimilarProducts", "SaveSimilarProductsHandler.cs");
+        var createApi = ReadSource("src", "Marketplace.Api", "Modules", "Produto", "Admin", "Create", "CreateProductHandler.cs");
+        var updateApi = ReadSource("src", "Marketplace.Api", "Modules", "Produto", "Admin", "Update", "UpdateProductHandler.cs");
+        var deleteApi = ReadSource("src", "Marketplace.Api", "Modules", "Produto", "Admin", "Delete", "DeleteProductHandler.cs");
+        var deleteImageApi = ReadSource("src", "Marketplace.Api", "Modules", "Produto", "Admin", "DeleteImage", "DeleteProductImageHandler.cs");
+        var similarApi = ReadSource("src", "Marketplace.Api", "Modules", "Produto", "Admin", "SaveSimilarProducts", "SaveSimilarProductsHandler.cs");
 
         Assert.Contains("BeginTransactionAsync", createApi);
         Assert.Contains("BeginTransactionAsync", updateApi);
@@ -282,7 +289,7 @@ public sealed class WebSecurityConfigurationTests
     {
         var page = ReadSource("src", "Marketplace.Web", "Components", "Pages", "Cart.razor");
         var client = ReadSource("src", "Marketplace.Web", "Services", "MarketplaceApiClient.cs");
-        var request = ReadSource("src", "Marketplace.Api", "Features", "Website", "Cart", "Checkout", "CheckoutRequest.cs");
+        var request = ReadSource("src", "Marketplace.Api", "Modules", "Cart", "Website", "Checkout", "CheckoutRequest.cs");
         var order = ReadSource("src", "Marketplace.Api", "Domain", "Order.cs");
 
         Assert.DoesNotContain("CardOwnerName", page);
@@ -346,8 +353,8 @@ public sealed class WebSecurityConfigurationTests
         var client = ReadSource("src", "Marketplace.Web", "Services", "MarketplaceApiClient.cs");
         var ordersPage = ReadSource("src", "Marketplace.Web", "Components", "Pages", "AdminOrders.razor");
         var ratingsPage = ReadSource("src", "Marketplace.Web", "Components", "Pages", "AdminRatings.razor");
-        var ordersApi = ReadSource("src", "Marketplace.Api", "Features", "Admin", "Orders", "Search", "SearchAdminOrdersQuery.cs");
-        var ratingsApi = ReadSource("src", "Marketplace.Api", "Features", "Admin", "Produto", "Ratings", "SearchPending", "SearchPendingProductRatingsEndpoint.cs");
+        var ordersApi = ReadSource("src", "Marketplace.Api", "Modules", "Orders", "Admin", "Search", "SearchAdminOrdersQuery.cs");
+        var ratingsApi = ReadSource("src", "Marketplace.Api", "Modules", "Ratings", "Admin", "SearchPending", "SearchPendingProductRatingsEndpoint.cs");
 
         Assert.Contains("GetAdminOrdersAsync(string? search = null, string? sort = null, string? direction = null", client);
         Assert.Contains("GetPendingRatingsAsync(string? search = null, string? sort = null, string? direction = null", client);
@@ -369,9 +376,9 @@ public sealed class WebSecurityConfigurationTests
         var subCategoriesPage = ReadSource("src", "Marketplace.Web", "Components", "Pages", "AdminSubCategories.razor");
         var attributesPage = ReadSource("src", "Marketplace.Web", "Components", "Pages", "AdminAttributes.razor");
         var carouselPage = ReadSource("src", "Marketplace.Web", "Components", "Pages", "AdminCarousel.razor");
-        var adminApi = ReadSource("src", "Marketplace.Api", "Features", "Admin", "Shared", "AdminListQueryPolicy.cs");
-        var productAdminModule = ReadSource("src", "Marketplace.Api", "Features", "Admin", "Produto", "ProdutoAdminModule.cs");
-        var productSearchApi = ReadSource("src", "Marketplace.Api", "Features", "Admin", "Produto", "Search", "SearchProductsEndpoint.cs");
+        var adminApi = ReadSource("src", "Marketplace.Api", "Shared", "Admin", "AdminListQueryPolicy.cs");
+        var productAdminModule = ReadSource("src", "Marketplace.Api", "Modules", "Produto", "Admin", "ProdutoAdminModule.cs");
+        var productSearchApi = ReadSource("src", "Marketplace.Api", "Modules", "Produto", "Admin", "Search", "SearchProductsEndpoint.cs");
 
         Assert.Contains("GetAdminUsersAsync(", client);
         Assert.Contains("GetAdminSellersAsync(", client);

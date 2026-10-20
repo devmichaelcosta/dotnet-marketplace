@@ -1,8 +1,8 @@
-using Marketplace.Api.Features.Admin.Attributes.Create;
-using Marketplace.Api.Features.Admin.Categories.Create;
-using Marketplace.Api.Features.Admin.Sellers.Create;
-using Marketplace.Api.Features.Admin.Shared;
-using Marketplace.Api.Features.Admin.Users.Create;
+using Marketplace.Api.Modules.Attributes.Admin.Create;
+using Marketplace.Api.Modules.Categories.Admin.Create;
+using Marketplace.Api.Modules.Sellers.Admin.Create;
+using Marketplace.Api.Shared.Admin;
+using Marketplace.Api.Modules.Users.Admin.Create;
 
 namespace Marketplace.Tests;
 
